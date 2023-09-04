@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
-version = "0.0.1"
-description = "A warpper around chromadb for face embedding and recognition."
+version = "0.0.2"
+description = "A vector database for face embeddings or encodings"
 
 with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
