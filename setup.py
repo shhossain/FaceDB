@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = "0.0.2"
+version = "0.0.3"
 description = "A vector database for face embeddings or encodings"
 
 with open("README.md", encoding="utf-8") as f:
