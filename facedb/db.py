@@ -504,7 +504,7 @@ class FaceDB:
             for i, r in enumerate(res):
                 if r:
                     warnings.warn(
-                        "Similar face already exists. If you want to add anyway, set `check_similar` to `False`."
+                        f"Similar face {r} already exists. If you want to add anyway, set `check_similar` to `False`."
                     )
                     faces[i] = None
                     idxs[i] = r
@@ -512,6 +512,8 @@ class FaceDB:
 
         # remove None faces
         faces = [i for i in faces if i is not None]
+        if not faces:
+            return idxs
 
         metadata = []
         added_img = False
@@ -537,7 +539,10 @@ class FaceDB:
 
             metadata.append(data)
 
-        embeddings = get_embeddings(embeddings=[f["embedding"] for f in faces])
+        embeddings = [f["embedding"] for f in faces]
+        if isinstance(embeddings[0], np.ndarray):
+            embeddings = [e.tolist() for e in embeddings]
+
         faces = None
 
         self.db.add(
