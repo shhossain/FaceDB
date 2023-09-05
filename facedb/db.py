@@ -182,7 +182,7 @@ class FaceDB:
         embedding_func=None,
         embedding_dim: Optional[int] = None,
         l2_normalization: bool = True,
-        module: Literal["deepface", "face_recognition"] = "deepface",
+        module: Literal["deepface", "face_recognition"] = "face_recognition",
         database_backend: Literal["chromadb", "pinecone"] = "chromadb",
         **kw,
     ):
@@ -204,6 +204,11 @@ class FaceDB:
             "chromadb",
             "pinecone",
         ], "Supported database backends are `chromadb` and `pinecone`."
+
+        if module == "deepface":
+            warnings.warn(
+                "Deepface module is not calibrated for vector database. Use `face_recognition` instead."
+            )
 
         self.metric = metric_map[database_backend][metric]
         self.embedding_func: Callable = None  # type: ignore
@@ -280,11 +285,14 @@ class FaceDB:
 
     def _is_match(self, distance, threshold=None):
         if self.module == "deepface":
+            metric = self.metric
+
             threshold = deepface_distance.findThreshold(  # type: ignore
-                self.deepface_model_name, self.metric
+                self.deepface_model_name, metric
             )
             if distance <= threshold:
                 return True
+
         elif self.module == "face_recognition":
             if face_recognition_is_match(
                 db_backend=self.db_backend,
@@ -688,21 +696,25 @@ class FaceDB:
             return self.db.parser(result, imgdb=self.imgdb, include=include)  # type: ignore
 
         elif params["where"] is not None:
-            ids = self.all(include=None)
-            ids = [id["id"] for id in ids]
-
-            if not params["include"]:
-                params["include"] = ["metadatas"]
-
-            result = self.db.get(
-                ids=ids,
-                where=params["where"],
-                include=params["include"],
+            raise NotImplementedError(
+                "Querying by name or metadata is not supported yet."
             )
 
-            return self.db.parser(
-                result, imgdb=self.imgdb, include=include, query=False
-            )
+            # ids = self.all(include=None)
+            # ids = [id["id"] for id in ids]
+
+            # if not params["include"]:
+            #     params["include"] = ["metadatas"]
+
+            # result = self.db.get(
+            #     ids=ids,
+            #     where=params["where"],
+            #     include=params["include"],
+            # )
+
+            # return self.db.parser(
+            #     result, imgdb=self.imgdb, include=include, query=False
+            # )
 
         else:
             raise ValueError("Either embedding, img or name must be provided")
@@ -809,4 +821,4 @@ class FaceDB:
     def all(self, include=None) -> FaceResults:
         dincludes, include = get_include(default=None, include=include)
         result = self.db.all(include=dincludes)
-        return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)  # type: ignore
+        return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)[0]  # type: ignore
