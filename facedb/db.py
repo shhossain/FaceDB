@@ -1,7 +1,6 @@
-import chromadb
 import numpy as np
 from tqdm.auto import tqdm
-from typing import Literal, Callable, Union
+from typing import Literal, Callable, Optional, Union
 import cv2
 import warnings
 import threading
@@ -54,11 +53,13 @@ from facedb.db_tools import (
     time_now,
     deeface_metric_map,
     get_model_dimension,
+    l2_normalize,
 )
 
 from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
 
 from pathlib import Path
+
 
 
 def create_deepface_embedding_func(
@@ -67,6 +68,7 @@ def create_deepface_embedding_func(
     enforce_detection,
     align,
     normalization,
+    l2_normalization,
 ):
     def embedding_func(img, enforce_detection=enforce_detection, **kw):
         try:
@@ -81,7 +83,10 @@ def create_deepface_embedding_func(
         except ValueError:
             return []
 
-        return [i["embedding"] for i in result]
+        result = [i["embedding"] for i in result]
+        if l2_normalization:
+            result = l2_normalize(result)
+        return result
 
     return embedding_func
 
@@ -89,17 +94,24 @@ def create_deepface_embedding_func(
 def create_face_recognition_embedding_func(
     model,
     num_jitters,
+    l2_normalization,
 ):
     def embedding_func(img, know_face_locations=None, **kw):
         img = img_to_cv2(img)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        return face_recognition.face_encodings(  # type: ignore
+        result = face_recognition.face_encodings(  # type: ignore
             img,
             num_jitters=num_jitters,
             model=model,
             known_face_locations=know_face_locations,
         )
+        if result is None:
+            return []
+
+        if l2_normalization:
+            result = l2_normalize(result)
+        return result
 
     return embedding_func
 
@@ -155,7 +167,8 @@ class FaceDB:
         path=None,
         metric: Literal["cosine", "l2", "ip"] = "cosine",
         embedding_func=None,
-        embedding_dim: int = 512,
+        embedding_dim: Optional[int] = None,
+        l2_normalization: bool = True,
         module: Literal["deepface", "face_recognition"] = "deepface",
         database_backend: Literal["chromadb", "pinecone"] = "chromadb",
         **kw,
@@ -170,6 +183,7 @@ class FaceDB:
         self.extract_faces: Callable = None  # type: ignore
         self.module = module
         self.db_backend = database_backend
+        self.l2_normalization = l2_normalization
         load_module(module)
 
         self.deepface_model_name = kw.get("model_name", "Facenet")
@@ -182,6 +196,7 @@ class FaceDB:
                     enforce_detection=kw.pop("enforce_detection", True),
                     align=kw.pop("align", True),
                     normalization=kw.pop("normalization", "base"),
+                    l2_normalization=l2_normalization,
                 )
                 self.extract_faces = create_deepface_extract_faces_func(
                     extract_faces_detector_backend=kw.pop(
@@ -195,6 +210,7 @@ class FaceDB:
                 self.embedding_func = create_face_recognition_embedding_func(
                     model=kw.pop("model", "small"),
                     num_jitters=kw.pop("num_jitters", 1),
+                    l2_normalization=l2_normalization,
                 )
                 self.extract_faces = create_face_recognition_extract_faces_func(
                     extract_face_model=kw.pop("extract_face_model", "hog"),
@@ -245,12 +261,13 @@ class FaceDB:
             )
             if distance <= threshold:
                 return True
-        else:
+        elif self.module == "face_recognition":
             if face_recognition_is_match(
                 db_backend=self.db_backend,
                 metric=self.metric,
                 value=distance,
                 threshold=threshold,
+                l2_normalization=self.l2_normalization,
             ):
                 return True
 

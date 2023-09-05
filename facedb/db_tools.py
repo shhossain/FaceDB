@@ -10,6 +10,9 @@ import warnings
 import pprint
 import json
 
+def l2_normalize(x):
+    return x / np.sqrt(np.sum(np.multiply(x, x)))
+
 
 def img_to_cv2(img):
     if isinstance(img, str) or isinstance(img, Path):
@@ -154,44 +157,44 @@ def get_include(default=None, include=None):
 
 face_recognation_metric_threshold = {
     "pinecone": {
-        "cosine": {"value": 0.07, "operator": "le", "positive_direction": "negative"},
+        "cosine": {"value": 0.07, "operator": "le", "direction": "negative"},
         "cosine_l2": {
             "value": 0.07,
             "operator": "le",
-            "positive_direction": "negative",
+            "direction": "negative",
         },
         "dotproduct": {
             "value": -0.8,
             "operator": "ge",
-            "positive_direction": "positive",
+            "direction": "positive",
         },
         "dotproduct_l2": {
             "value": 0.07,
             "operator": "le",
-            "positive_direction": "negative",
+            "direction": "negative",
         },
         "euclidean": {
             "value": 0.75,
             "operator": "ge",
-            "positive_direction": "positive",
+            "direction": "positive",
         },
         "euclidean_l2": {
             "value": 0.86,
             "operator": "ge",
-            "positive_direction": "positive",
+            "direction": "positive",
         },
     },
     "chromadb": {
-        "cosine": {"value": 0.06, "operator": "le", "positive_direction": "negative"},
+        "cosine": {"value": 0.06, "operator": "le", "direction": "negative"},
         "cosine_l2": {
             "value": 0.07,
             "operator": "le",
-            "positive_direction": "negative",
+            "direction": "negative",
         },
-        "ip": {"value": -1.1, "operator": "ge", "positive_direction": "positive"},
-        "ip_l2": {"value": 0.07, "operator": "le", "positive_direction": "negative"},
-        "l2": {"value": 0.27, "operator": "le", "positive_direction": "negative"},
-        "l2_l2": {"value": 0.14, "operator": "le", "positive_direction": "negative"},
+        "ip": {"value": -1.1, "operator": "ge", "direction": "positive"},
+        "ip_l2": {"value": 0.07, "operator": "le", "direction": "negative"},
+        "l2": {"value": 0.27, "operator": "le", "direction": "negative"},
+        "l2_l2": {"value": 0.14, "operator": "le", "direction": "negative"},
     },
 }
 

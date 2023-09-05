@@ -274,11 +274,11 @@ class PineconeDB(BaseDB):
 
         assert (
             self.index_info.dimension == self.dimension  # type: ignore
-        ), f"dimension must be the same as the index. `{self.index_name}` has dimension of `{self.index_info.dimension}` and got `{self.dimension}`"
+        ), f"dimension must be the same as the index. `{self.index_name}` has dimension of `{self.index_info.dimension}` but got `{self.dimension}`"
 
         assert (
             self.index_info.metric == metric  # type: ignore
-        ), f"metric must be the same as the index. `{self.index_name}` has metric of `{self.index_info.metric}` and got `{metric}`"
+        ), f"metric must be the same as the index. `{self.index_name}` has metric of `{self.index_info.metric}` but got `{metric}`"
 
     def count(self):
         return self.index.describe_index_stats().get("total_vector_count", -1)
