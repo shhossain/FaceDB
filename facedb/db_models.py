@@ -380,7 +380,7 @@ class PineconeDB(BaseDB):
         return results
 
     def get(self, ids, include=None, where=None):
-        return self.index.fetch(ids=ids)
+        return self.index.fetch(ids=ids).to_dict()
 
     def all(self, include=None):
         get_metadata = None
