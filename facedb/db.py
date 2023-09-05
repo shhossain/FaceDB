@@ -48,7 +48,7 @@ from facedb.db_tools import (
     ImgDB,
     Rect,
     img_to_cv2,
-    face_recognition_is_similar,
+    face_recognition_is_match,
     many_imgs,
     many_vectors,
     time_now,
@@ -169,6 +169,7 @@ class FaceDB:
         self.embedding_func: Callable = None  # type: ignore
         self.extract_faces: Callable = None  # type: ignore
         self.module = module
+        self.db_backend = database_backend
         load_module(module)
 
         self.deepface_model_name = kw.get("model_name", "Facenet")
@@ -245,7 +246,12 @@ class FaceDB:
             if distance <= threshold:
                 return True
         else:
-            if face_recognition_is_similar(distance, threshold, self.metric):
+            if face_recognition_is_match(
+                db_backend=self.db_backend,
+                metric=self.metric,
+                value=distance,
+                threshold=threshold,
+            ):
                 return True
 
         return False

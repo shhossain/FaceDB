@@ -65,6 +65,7 @@ def many_imgs(obj):
             return True
     return False
 
+
 def convert_list(obj):
     if isinstance(obj, list):
         return obj
@@ -72,7 +73,7 @@ def convert_list(obj):
         return obj.tolist()
     else:
         return list(obj)
-    
+
 
 def get_embeddings(
     imgs: Optional[Union[str, list[str], np.ndarray, list[np.ndarray]]] = None,  # type: ignore
@@ -132,20 +133,102 @@ def get_include(default=None, include=None):
     return sincludes, include
 
 
-face_recognition_space_map = {
-    "cosine": {
-        "threshold": 0.06,
-        "func": lambda dis, threshold: dis <= threshold,
+# face_recognition_metric_map = {
+#     "pinecone": {
+#         "cosine": lambda dis : dis <= 0.07,
+#         "cosine_l2": lambda dis : dis <= 0.07,
+#         "dotproduct": lambda dis : dis >= -0.8,
+#         "dotproduct_l2": lambda dis : dis <= 0.07,
+#         "euclidean": lambda dis : dis >= 0.75,
+#         "euclidean_l2": lambda dis : dis >= 0.86,
+#     },
+#     "chromadb": {
+#         "cosine": lambda dis : dis <= 0.06,
+#         "cosine_l2": lambda dis : dis <= 0.07,
+#         "ip": lambda dis : dis >= -1.1,
+#         "ip_l2": lambda dis : dis <= 0.07,
+#         "l2": lambda dis : dis <= 0.27,
+#         "l2_l2": lambda dis: dis <= 0.14,
+#     }
+# }
+
+face_recognation_metric_threshold = {
+    "pinecone": {
+        "cosine": {"value": 0.07, "operator": "le", "positive_direction": "negative"},
+        "cosine_l2": {
+            "value": 0.07,
+            "operator": "le",
+            "positive_direction": "negative",
+        },
+        "dotproduct": {
+            "value": -0.8,
+            "operator": "ge",
+            "positive_direction": "positive",
+        },
+        "dotproduct_l2": {
+            "value": 0.07,
+            "operator": "le",
+            "positive_direction": "negative",
+        },
+        "euclidean": {
+            "value": 0.75,
+            "operator": "ge",
+            "positive_direction": "positive",
+        },
+        "euclidean_l2": {
+            "value": 0.86,
+            "operator": "ge",
+            "positive_direction": "positive",
+        },
     },
-    "euclidean": {
-        "threshold": 0.27,
-        "func": lambda dis, threshold: dis <= threshold,
-    },
-    "ip": {
-        "threshold": -1.4,
-        "func": lambda dis, threshold: dis <= threshold,
+    "chromadb": {
+        "cosine": {"value": 0.06, "operator": "le", "positive_direction": "negative"},
+        "cosine_l2": {
+            "value": 0.07,
+            "operator": "le",
+            "positive_direction": "negative",
+        },
+        "ip": {"value": -1.1, "operator": "ge", "positive_direction": "positive"},
+        "ip_l2": {"value": 0.07, "operator": "le", "positive_direction": "negative"},
+        "l2": {"value": 0.27, "operator": "le", "positive_direction": "negative"},
+        "l2_l2": {"value": 0.14, "operator": "le", "positive_direction": "negative"},
     },
 }
+
+
+
+def face_recognition_is_match(db_backend, metric, value, l2_normalization=True, threshold: Optional[float] = None):
+    mm = {
+        "pinecone": {
+            "cosine": "cosine",
+            "euclidean": "euclidean",
+            "dot": "dotproduct",
+        },
+        "chromadb": {
+            "cosine": "cosine",
+            "euclidean": "l2",
+            "dot": "ip",
+        },
+    }
+    
+    metric = mm[db_backend][metric]
+    if l2_normalization:
+        metric_threshold = face_recognation_metric_threshold[db_backend][metric + "_l2"]
+    else:
+        metric_threshold = face_recognation_metric_threshold[db_backend][metric]
+    
+    if threshold is None:
+        threshold = metric_threshold["value"]
+    
+    if metric_threshold["operator"] == "le":
+        return value <= threshold
+    elif metric_threshold["operator"] == "ge":
+        return value >= threshold
+    else:
+        raise ValueError(f"Unknown operator: {metric_threshold['operator']}")
+        
+        
+
 
 deeface_metric_map = {
     "cosine": "cosine",
@@ -153,12 +236,6 @@ deeface_metric_map = {
     "euclidean_l2": "l2",
 }
 
-
-def face_recognition_is_similar(dis, threshold, space="cosine"):
-    if threshold is None:
-        threshold = face_recognition_space_map[space]["threshold"]
-
-    return face_recognition_space_map[space]["func"](dis, threshold)
 
 
 def time_now():
