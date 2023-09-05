@@ -434,6 +434,7 @@ class FaceDB:
                                     "embedding": embedding,
                                     "img": img,
                                     "rect": rects[j],
+                                    "index": i,
                                 }
                             )
                     elif len(result) > 0:
@@ -443,6 +444,7 @@ class FaceDB:
                             "embedding": result[0],
                             "img": img,
                             "rect": rects[0],
+                            "index": i,
                         }
                         if metadata_posible:
                             try:
@@ -474,6 +476,7 @@ class FaceDB:
                 res = {
                     "id": idx,
                     "embedding": embedding,
+                    "index": i,
                 }
 
                 if names is not None:
@@ -496,6 +499,7 @@ class FaceDB:
 
                     if len(rects) > 1:
                         print("Multiple faces found in the img. Taking first face.")
+
                     res["img"] = imgs[i]
                     res["rect"] = rects[0]
 
@@ -523,8 +527,9 @@ class FaceDB:
                     print(
                         f"Similar face {r} already exists. If you want to add anyway, set `check_similar` to `False`."
                     )
+                    failed.append(faces[i]["index"])
                     faces[i] = None
-                    idxs[i] = r
+
             res = None
 
         # remove None faces
@@ -570,6 +575,9 @@ class FaceDB:
 
         if added_img:
             self.imgdb.conn.commit()
+
+        print(f"Added {len(ids)} faces.")
+        print(f"Failed to add {len(failed)} faces.")
 
         return idxs, failed
 
