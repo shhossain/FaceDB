@@ -253,13 +253,19 @@ class PineconeDB(BaseDB):
             ), "index must be a pinecone.Index object"
             self.index = index
 
-        self.index_info = self.index.describe_index_stats()
+        self.index_name = self.index.configuration["index_name"]  # type: ignore
+
+        self.index_info: dict = pinecone.describe_index(self.index_name)  # type: ignore
 
         assert (
-            self.index_info["dimension"] == dimension
+            self.index_info["database"]["dimension"] == self.dimension  # type: ignore
         ), "dimension must be the same as the index"
 
-    def count(self):    
+        assert (
+            self.index_info["database"]["metric"] == metric  # type: ignore
+        ), "metric must be the same as the index"
+
+    def count(self):
         return self.index_info["total_vector_count"]
 
     def get_index(self, index_name, dimension, metric):
@@ -281,7 +287,7 @@ class PineconeDB(BaseDB):
 
     def _delete(self, ids):
         return self.index.delete(ids)
-    
+
     def delete_all(self):
         return self.index.delete(delete_all=True)
 
@@ -525,7 +531,6 @@ class ChromaDB(BaseDB):
             return self.query_parser(result, imgdb, include)
         else:
             return self.get_parser(result, imgdb, include)
-        
+
     def delete_all(self):
         shutil.rmtree(str(self.path))
-        

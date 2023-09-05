@@ -134,11 +134,11 @@ def get_include(default=None, include=None):
 
 face_recognition_space_map = {
     "cosine": {
-        "threshold": 0.1,
+        "threshold": 0.06,
         "func": lambda dis, threshold: dis <= threshold,
     },
-    "l2": {
-        "threshold": 0.35,
+    "euclidean": {
+        "threshold": 0.27,
         "func": lambda dis, threshold: dis <= threshold,
     },
     "ip": {
