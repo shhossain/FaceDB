@@ -174,12 +174,12 @@ face_recognation_metric_threshold = {
             "direction": "negative",
         },
         "euclidean": {
-            "value": 0.75,
+            "value": 0.72,
             "operator": "ge",
             "direction": "positive",
         },
         "euclidean_l2": {
-            "value": 0.86,
+            "value": 0.85,
             "operator": "ge",
             "direction": "positive",
         },
