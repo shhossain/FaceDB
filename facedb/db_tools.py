@@ -201,20 +201,6 @@ face_recognation_metric_threshold = {
 
 
 def face_recognition_is_match(db_backend, metric, value, l2_normalization=True, threshold: Optional[float] = None):
-    mm = {
-        "pinecone": {
-            "cosine": "cosine",
-            "euclidean": "euclidean",
-            "dot": "dotproduct",
-        },
-        "chromadb": {
-            "cosine": "cosine",
-            "euclidean": "l2",
-            "dot": "ip",
-        },
-    }
-    
-    metric = mm[db_backend][metric]
     if l2_normalization:
         metric_threshold = face_recognation_metric_threshold[db_backend][metric + "_l2"]
     else:
@@ -230,8 +216,6 @@ def face_recognition_is_match(db_backend, metric, value, l2_normalization=True, 
     else:
         raise ValueError(f"Unknown operator: {metric_threshold['operator']}")
         
-        
-
 
 deeface_metric_map = {
     "cosine": "cosine",

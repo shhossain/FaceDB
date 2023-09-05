@@ -61,7 +61,6 @@ from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, Chroma
 from pathlib import Path
 
 
-
 def create_deepface_embedding_func(
     model_name,
     detector_backend,
@@ -160,6 +159,20 @@ def create_face_recognition_extract_faces_func(extract_face_model="hog"):
     return extract_faces
 
 
+metric_map = {
+    "pinecone": {
+        "cosine": "cosine",
+        "euclidean": "euclidean",
+        "dot": "dotproduct",
+    },
+    "chromadb": {
+        "cosine": "cosine",
+        "euclidean": "l2",
+        "dot": "ip",
+    },
+}
+
+
 class FaceDB:
     def __init__(
         self,
@@ -178,7 +191,11 @@ class FaceDB:
 
         path = Path(path)
 
-        self.metric = metric
+        assert metric in ["cosine", "euclidean", "dot"], "Supported metrics are `cosine`, `euclidean` and `dot`."
+        assert module in ["deepface", "face_recognition"], "Supported modules are `deepface` and `face_recognition`."
+        assert database_backend in ["chromadb", "pinecone"], "Supported database backends are `chromadb` and `pinecone`."
+        
+        self.metric = metric_map[database_backend][metric]
         self.embedding_func: Callable = None  # type: ignore
         self.extract_faces: Callable = None  # type: ignore
         self.module = module
@@ -230,7 +247,7 @@ class FaceDB:
             self.db = ChromaDB(
                 path=str(path),
                 client=kw.pop("client", None),
-                metric=metric,
+                metric=self.metric,
                 collection_name=kw.pop("collection_name", "facedb"),
             )
 
@@ -238,7 +255,7 @@ class FaceDB:
             self.db = PineconeDB(
                 index=kw.pop("index", None),
                 index_name=kw.pop("index_name", "facedb"),
-                metric=metric,
+                metric=self.metric,
                 dimension=embedding_dim
                 or get_model_dimension(module, self.deepface_model_name),
             )
@@ -257,7 +274,7 @@ class FaceDB:
     def _is_match(self, distance, threshold=None):
         if self.module == "deepface":
             threshold = deepface_distance.findThreshold(  # type: ignore
-                self.deepface_model_name, deeface_metric_map[self.metric]
+                self.deepface_model_name, self.metric
             )
             if distance <= threshold:
                 return True
