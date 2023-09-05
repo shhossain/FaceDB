@@ -251,9 +251,9 @@ class PineconeDB(BaseDB):
         if not index:
             try:
                 pinecone.init(  # type: ignore
-                    api_key=kw.get("api_key", os.environ.get("PINECONE_API_KEY")),
+                    api_key=kw.get("api_key", os.environ.get("PINECONE_API_KEY", "API_KEY")),
                     environment=kw.get(
-                        "environment", os.environ.get("PINECONE_ENVIRONMENT")
+                        "environment", os.environ.get("PINECONE_ENVIRONMENT", "PRODUCTION")
                     ),
                 )
             except Exception as e:

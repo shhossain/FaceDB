@@ -178,7 +178,7 @@ class FaceDB:
         self,
         *,
         path=None,
-        metric: Literal["cosine", "euclidean", "dot"] = "cosine",
+        metric: Literal["cosine", "euclidean", "dot"] = "euclidean",
         embedding_func=None,
         embedding_dim: Optional[int] = None,
         l2_normalization: bool = True,
@@ -248,11 +248,6 @@ class FaceDB:
                     "Currently only `deepface` and `face_recognition` are supported."
                 )
 
-        if metric != "cosine":
-            warnings.warn(
-                "Only `cosine` space is tested. Other spaces may not work as expected."
-            )
-
         if database_backend == "chromadb":
             self.db = ChromaDB(
                 path=str(path),
@@ -268,6 +263,8 @@ class FaceDB:
                 metric=self.metric,
                 dimension=embedding_dim
                 or get_model_dimension(module, self.deepface_model_name),
+                api_key=kw.pop("pinecone_api_key", None),
+                environment=kw.pop("pinecone_environment", None),
             )
 
         if not path.exists():
@@ -812,4 +809,4 @@ class FaceDB:
     def all(self, include=None) -> FaceResults:
         dincludes, include = get_include(default=None, include=include)
         result = self.db.all(include=dincludes)
-        return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)[0]  # type: ignore
+        return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)  # type: ignore
