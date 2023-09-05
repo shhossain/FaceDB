@@ -480,7 +480,7 @@ class ChromaDB(BaseDB):
     def get(self, ids, include=None, where=None):
         return self.db.get(ids=ids, include=include or ["metadatas"], where=where)
 
-    def __len__(self):
+    def count(self) -> int:
         return self.db.count()
 
     def all(self, include=None):
