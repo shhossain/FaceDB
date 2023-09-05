@@ -105,7 +105,7 @@ def get_embeddings(
         embeddings = []
         for img in imgs:
             embeds = embedding_func(img)
-            if embeds:
+            if len(embeds) != 0:
                 if many_vectors(embeds):
                     embeddings.extend(embeds)  # type: ignore
                 else:

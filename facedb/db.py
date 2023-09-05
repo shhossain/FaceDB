@@ -165,7 +165,7 @@ class FaceDB:
         self,
         *,
         path=None,
-        metric: Literal["cosine", "l2", "ip"] = "cosine",
+        metric: Literal["cosine", "euclidean", "dot"] = "cosine",
         embedding_func=None,
         embedding_dim: Optional[int] = None,
         l2_normalization: bool = True,
