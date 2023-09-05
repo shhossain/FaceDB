@@ -349,7 +349,7 @@ class FaceDB:
         if check_similar:
             result = self.check_similar(embeddings=embedding)[0]
             if result:
-                warnings.warn(
+                print(
                     "Similar face already exists. If you want to add anyway, set `check_similar` to `False`."
                 )
                 return result
@@ -407,51 +407,57 @@ class FaceDB:
                 idxs = ids or [f"faceid_{i}-{time_now()}" for i in range(len(imgs))]
 
             for i, img in enumerate(tqdm(imgs, desc="Extracting faces")):
-                rects = self.get_faces(img, only_rect=True)
-                if not rects:
-                    warnings.warn(f"No face found in the img {i}. Skipping.")
+                try:
+                    rects = self.get_faces(img, only_rect=True)
+                    if not rects:
+                        print(f"No face found in the img {i}. Skipping.")
+                        failed.append(i)
+                        continue
+                    result = self.embedding_func(
+                        img,
+                        know_face_locations=[r.to(self.module) for r in rects],
+                        enforce_detection=False,
+                    )
+                    try:
+                        idx = idxs[i]
+                    except IndexError:
+                        raise ValueError("`ids` length and `imgs` length must be same")
+
+                    if len(result) > 1:
+                        # metadata_posible = False
+                        for j, embedding in enumerate(result):
+                            name = f"{names[i]}_{j}"
+                            faces.append(
+                                {
+                                    "id": f"{idx}_{j}",
+                                    "name": name,
+                                    "embedding": embedding,
+                                    "img": img,
+                                    "rect": rects[j],
+                                }
+                            )
+                    elif len(result) > 0:
+                        res = {
+                            "id": idx,
+                            "name": names[i],
+                            "embedding": result[0],
+                            "img": img,
+                            "rect": rects[0],
+                        }
+                        if metadata_posible:
+                            try:
+                                res.update(metadata[i])
+                            except IndexError:
+                                pass
+                        faces.append(res)
+                    else:
+                        warnings.warn(f"No face found in the img {i}. Skipping.")
+                        failed.append(i)
+                        continue
+                except Exception as e:
+                    print(f"Error in img {i}. Skipping.", e)
                     failed.append(i)
                     continue
-                result = self.embedding_func(
-                    img,
-                    know_face_locations=[r.to(self.module) for r in rects],
-                    enforce_detection=False,
-                )
-                try:
-                    idx = idxs[i]
-                except IndexError:
-                    raise ValueError("`ids` length and `imgs` length must be same")
-
-                if len(result) > 1:
-                    # metadata_posible = False
-                    for j, embedding in enumerate(result):
-                        name = f"{names[i]}_{j}"
-                        faces.append(
-                            {
-                                "id": f"{idx}_{j}",
-                                "name": name,
-                                "embedding": embedding,
-                                "img": img,
-                                "rect": rects[j],
-                            }
-                        )
-                elif len(result) > 0:
-                    res = {
-                        "id": idx,
-                        "name": names[i],
-                        "embedding": result[0],
-                        "img": img,
-                        "rect": rects[0],
-                    }
-                    if metadata_posible:
-                        try:
-                            res.update(metadata[i])
-                        except IndexError:
-                            pass
-                    faces.append(res)
-                else:
-                    warnings.warn(f"No face found in the img {i}. Skipping.")
-                    failed.append(i)
 
             rects = None
             result = None
@@ -489,9 +495,7 @@ class FaceDB:
                         )
 
                     if len(rects) > 1:
-                        warnings.warn(
-                            "Multiple faces found in the img. Taking first face."
-                        )
+                        print("Multiple faces found in the img. Taking first face.")
                     res["img"] = imgs[i]
                     res["rect"] = rects[0]
 
@@ -516,7 +520,7 @@ class FaceDB:
             res = self.check_similar(embeddings=[i["embedding"] for i in faces])
             for i, r in enumerate(res):
                 if r:
-                    warnings.warn(
+                    print(
                         f"Similar face {r} already exists. If you want to add anyway, set `check_similar` to `False`."
                     )
                     faces[i] = None
