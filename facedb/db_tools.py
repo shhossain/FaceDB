@@ -10,6 +10,7 @@ import warnings
 import pprint
 import json
 
+
 def l2_normalize(x):
     return x / np.sqrt(np.sum(np.multiply(x, x)))
 
@@ -58,24 +59,26 @@ def many_vectors(obj):
     return False
 
 
-def many_imgs(obj):
+def is_list_of_img(obj):
     if isinstance(obj, list):
-        if len(obj) == 0:
-            return False
-        elif isinstance(obj[0], str):
-            return True
-        elif isinstance(obj[0], np.ndarray):
-            return True
+        return True
     return False
 
 
-def convert_list(obj):
-    if isinstance(obj, list):
-        return obj
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    else:
-        return list(obj)
+def is_2d(x):
+    if isinstance(x, list):
+        x = np.array(x)
+    if len(x.shape) == 2:
+        return True
+    return False
+
+
+def convert_shape(x):
+    if isinstance(x, list):
+        x = np.array(x)
+    if len(x.shape) == 3:
+        x = x.squeeze()
+    return x
 
 
 def get_embeddings(
@@ -93,8 +96,8 @@ def get_embeddings(
             else:
                 return []
 
-        elif not many_imgs(imgs):
-            imgs: list = [imgs]
+        elif not is_list_of_img(imgs):
+            imgs = [imgs] # type: ignore
 
         if embedding_func is None:
             if raise_error:
@@ -103,19 +106,12 @@ def get_embeddings(
                 return []
 
         embeddings = []
-        for img in imgs:
+        for img in imgs: # type: ignore
             embeds = embedding_func(img)
-            if len(embeds) != 0:
-                if many_vectors(embeds):
-                    embeddings.extend(embeds)  # type: ignore
-                else:
-                    embeddings.append(embeds)  # type: ignore
+            for embed in embeds:
+                embeddings.append(embed) # type: ignore
 
-    elif not many_vectors(embeddings):
-        embeddings: list = [embeddings]
-
-    if not isinstance(embeddings[0], list):
-        embeddings = [convert_list(i) for i in embeddings]
+    embeddings = convert_shape(embeddings).tolist()
 
     return embeddings  # type: ignore
 
@@ -135,25 +131,6 @@ def get_include(default=None, include=None):
 
     return sincludes, include
 
-
-# face_recognition_metric_map = {
-#     "pinecone": {
-#         "cosine": lambda dis : dis <= 0.07,
-#         "cosine_l2": lambda dis : dis <= 0.07,
-#         "dotproduct": lambda dis : dis >= -0.8,
-#         "dotproduct_l2": lambda dis : dis <= 0.07,
-#         "euclidean": lambda dis : dis >= 0.75,
-#         "euclidean_l2": lambda dis : dis >= 0.86,
-#     },
-#     "chromadb": {
-#         "cosine": lambda dis : dis <= 0.06,
-#         "cosine_l2": lambda dis : dis <= 0.07,
-#         "ip": lambda dis : dis >= -1.1,
-#         "ip_l2": lambda dis : dis <= 0.07,
-#         "l2": lambda dis : dis <= 0.27,
-#         "l2_l2": lambda dis: dis <= 0.14,
-#     }
-# }
 
 face_recognation_metric_threshold = {
     "pinecone": {
@@ -199,30 +176,30 @@ face_recognation_metric_threshold = {
 }
 
 
-
-def face_recognition_is_match(db_backend, metric, value, l2_normalization=True, threshold: Optional[float] = None):
+def face_recognition_is_match(
+    db_backend, metric, value, l2_normalization=True, threshold: Optional[float] = None
+):
     if l2_normalization:
         metric_threshold = face_recognation_metric_threshold[db_backend][metric + "_l2"]
     else:
         metric_threshold = face_recognation_metric_threshold[db_backend][metric]
-    
+
     if threshold is None:
         threshold = metric_threshold["value"]
-    
+
     if metric_threshold["operator"] == "le":
         return value <= threshold
     elif metric_threshold["operator"] == "ge":
         return value >= threshold
     else:
         raise ValueError(f"Unknown operator: {metric_threshold['operator']}")
-        
+
 
 deeface_metric_map = {
     "cosine": "cosine",
     "euclidean": "l2",
     "euclidean_l2": "l2",
 }
-
 
 
 def time_now():

@@ -48,8 +48,8 @@ from facedb.db_tools import (
     Rect,
     img_to_cv2,
     face_recognition_is_match,
-    many_imgs,
-    many_vectors,
+    is_list_of_img,
+    is_2d,
     time_now,
     deeface_metric_map,
     get_model_dimension,
@@ -191,10 +191,20 @@ class FaceDB:
 
         path = Path(path)
 
-        assert metric in ["cosine", "euclidean", "dot"], "Supported metrics are `cosine`, `euclidean` and `dot`."
-        assert module in ["deepface", "face_recognition"], "Supported modules are `deepface` and `face_recognition`."
-        assert database_backend in ["chromadb", "pinecone"], "Supported database backends are `chromadb` and `pinecone`."
-        
+        assert metric in [
+            "cosine",
+            "euclidean",
+            "dot",
+        ], "Supported metrics are `cosine`, `euclidean` and `dot`."
+        assert module in [
+            "deepface",
+            "face_recognition",
+        ], "Supported modules are `deepface` and `face_recognition`."
+        assert database_backend in [
+            "chromadb",
+            "pinecone",
+        ], "Supported database backends are `chromadb` and `pinecone`."
+
         self.metric = metric_map[database_backend][metric]
         self.embedding_func: Callable = None  # type: ignore
         self.extract_faces: Callable = None  # type: ignore
@@ -336,10 +346,10 @@ class FaceDB:
     ):
         single = False
         if embedding:
-            if not many_vectors(embedding):
+            if not is_2d(embedding):
                 single = True
         elif img:
-            if not many_imgs(img):
+            if not is_list_of_img(img):
                 single = True
 
         embedding = get_embeddings(
