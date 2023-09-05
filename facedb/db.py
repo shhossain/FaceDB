@@ -345,10 +345,10 @@ class FaceDB:
         self, *, img=None, embedding=None, include=None, threshold=None, top_k=1
     ):
         single = False
-        if embedding:
+        if embedding is not None:
             if not is_2d(embedding):
                 single = True
-        elif img:
+        elif img is not None:
             if not is_list_of_img(img):
                 single = True
 
