@@ -1,5 +1,4 @@
 from typing import Literal, Optional
-import pinecone
 import numpy as np
 import chromadb
 import cv2
@@ -8,6 +7,8 @@ from typing import Union
 from pathlib import Path
 import os
 import shutil
+
+pinecone = None
 
 
 def many_vectors(obj):
@@ -226,6 +227,15 @@ class PineconeDB(BaseDB):
     def __init__(
         self, dimension: int, index=None, index_name=None, metric="cosine", **kw
     ):
+        global pinecone
+        if pinecone is None:
+            try:
+                import pinecone
+            except ImportError:
+                raise ImportError(
+                    "pinecone is not installed. Please install it with `pip install pinecone-client`"
+                )
+
         self.index: pinecone.Index = None  # type: ignore
         self.dimension: int = dimension
         assert metric in [
@@ -239,43 +249,46 @@ class PineconeDB(BaseDB):
         assert dimension is not None, "dimension must be provided"
 
         if not index:
-            pinecone.init(
-                api_key=kw.get("api_key", os.environ.get("PINECONE_API_KEY")),
-                environment=kw.get(
-                    "environment", os.environ.get("PINECONE_ENVIRONMENT")
-                ),
-            )
+            try:
+                pinecone.init(  # type: ignore
+                    api_key=kw.get("api_key", os.environ.get("PINECONE_API_KEY")),
+                    environment=kw.get(
+                        "environment", os.environ.get("PINECONE_ENVIRONMENT")
+                    ),
+                )
+            except Exception as e:
+                raise Exception(
+                    "Pinecone api_key and environment must be provided. Please see https://www.pinecone.io/docs/quick-start/ for more information"
+                )
 
             self.index = self.get_index(index_name, dimension, metric)
         else:
             assert isinstance(
-                index, pinecone.Index
-            ), "index must be a pinecone.Index object"
+                index, pinecone.Index  # type: ignore
+            ), f"index must be a pinecone.Index object, got `{type(index)}`"
             self.index = index
-            
-            
 
         self.index_name = self.index.configuration.server_variables["index_name"]
 
         self.index_info: dict = pinecone.describe_index(self.index_name)  # type: ignore
 
         assert (
-            self.index_info["database"]["dimension"] == self.dimension  # type: ignore
-        ), "dimension must be the same as the index"
+            self.index_info.dimension == self.dimension  # type: ignore
+        ), f"dimension must be the same as the index. `{self.index_name}` has dimension of `{self.index_info.dimension}` and got `{self.dimension}`"
 
         assert (
-            self.index_info["database"]["metric"] == metric  # type: ignore
-        ), "metric must be the same as the index"
+            self.index_info.metric == metric  # type: ignore
+        ), f"metric must be the same as the index. `{self.index_name}` has metric of `{self.index_info.metric}` and got `{metric}`"
 
     def count(self):
-        return self.index_info["total_vector_count"]
+        return self.index.describe_index_stats().get("total_vector_count", -1)
 
     def get_index(self, index_name, dimension, metric):
-        if index_name in pinecone.list_indexes():
-            return pinecone.Index(index_name)
+        if index_name in pinecone.list_indexes():  # type: ignore
+            return pinecone.Index(index_name)  # type: ignore
         else:
-            pinecone.create_index(name=index_name, dimension=dimension, metric=metric)
-            return pinecone.Index(index_name)
+            pinecone.create_index(name=index_name, dimension=dimension, metric=metric)  # type: ignore
+            return pinecone.Index(index_name)  # type: ignore
 
     def _add(self, ids, embeddings, metadatas=None):
         vectors = []
