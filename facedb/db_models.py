@@ -252,8 +252,10 @@ class PineconeDB(BaseDB):
                 index, pinecone.Index
             ), "index must be a pinecone.Index object"
             self.index = index
+            
+            
 
-        self.index_name = self.index.configuration["index_name"]  # type: ignore
+        self.index_name = self.index.configuration.server_variables["index_name"]
 
         self.index_info: dict = pinecone.describe_index(self.index_name)  # type: ignore
 
