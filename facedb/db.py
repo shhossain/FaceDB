@@ -225,7 +225,7 @@ class FaceDB:
                 dimension=embedding_dim
                 or get_model_dimension(module, self.deepface_model_name),
             )
-        
+
         if not path.exists():
             path.mkdir(parents=True)
 
@@ -386,8 +386,9 @@ class FaceDB:
         ids=None,
         names=None,
         check_similar=True,
-    ) -> list[str]:
+    ) -> tuple[list, list]:
         faces = []
+        failed = []
         metadata_posible = metadata is not None
         if embeddings is None:
             if metadata_posible:
@@ -409,6 +410,7 @@ class FaceDB:
                 rects = self.get_faces(img, only_rect=True)
                 if not rects:
                     warnings.warn(f"No face found in the img {i}. Skipping.")
+                    failed.append(i)
                     continue
                 result = self.embedding_func(
                     img,
@@ -449,6 +451,7 @@ class FaceDB:
                     faces.append(res)
                 else:
                     warnings.warn(f"No face found in the img {i}. Skipping.")
+                    failed.append(i)
 
             rects = None
             result = None
@@ -503,7 +506,7 @@ class FaceDB:
                 faces.append(res)
 
         if not faces:
-            return []
+            return [], failed
 
         embedding = None
         embeddings = None
@@ -523,7 +526,7 @@ class FaceDB:
         # remove None faces
         faces = [i for i in faces if i is not None]
         if not faces:
-            return idxs
+            return idxs, failed
 
         metadata = []
         added_img = False
@@ -564,7 +567,7 @@ class FaceDB:
         if added_img:
             self.imgdb.conn.commit()
 
-        return idxs
+        return idxs, failed
 
     def search(
         self, *, embedding=None, img=None, include=None, top_k=1
