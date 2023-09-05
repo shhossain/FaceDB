@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 version = "0.0.4"
-description = "A vector database for face embeddings or encodings"
+description = "A python package for large scale face recognition."
 
 with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
