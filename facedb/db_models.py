@@ -7,6 +7,7 @@ import pprint
 from typing import Union
 from pathlib import Path
 import os
+import shutil
 
 
 def many_vectors(obj):
@@ -280,6 +281,9 @@ class PineconeDB(BaseDB):
 
     def _delete(self, ids):
         return self.index.delete(ids)
+    
+    def delete_all(self):
+        return self.index.delete(delete_all=True)
 
     def _update(self, ids, embeddings=None, metadatas=None):
         res = []
@@ -521,3 +525,7 @@ class ChromaDB(BaseDB):
             return self.query_parser(result, imgdb, include)
         else:
             return self.get_parser(result, imgdb, include)
+        
+    def delete_all(self):
+        shutil.rmtree(str(self.path))
+        
