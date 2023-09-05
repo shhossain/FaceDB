@@ -1,4 +1,7 @@
 .vscode/
+*data*/
+*.ipynb
+
 
 
 # Byte-compiled / optimized / DLL files

@@ -1,6 +1,6 @@
 from datetime import datetime
 import sqlite3
-from typing import Union
+from typing import Callable, Union, Optional
 import cv2
 import numpy as np
 from PIL import Image
@@ -44,6 +44,147 @@ def img_to_bytes(img):
     return img
 
 
+def many_vectors(obj):
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return False
+        elif isinstance(obj[0], list):
+            return True
+        elif isinstance(obj[0], np.ndarray):
+            return True
+    return False
+
+
+def many_imgs(obj):
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return False
+        elif isinstance(obj[0], str):
+            return True
+        elif isinstance(obj[0], np.ndarray):
+            return True
+    return False
+
+def convert_list(obj):
+    if isinstance(obj, list):
+        return obj
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return list(obj)
+    
+
+def get_embeddings(
+    imgs: Optional[Union[str, list[str], np.ndarray, list[np.ndarray]]] = None,  # type: ignore
+    embeddings: Optional[Union[list[list[float]], list[np.ndarray]]] = None,  # type: ignore
+    embedding_func: Optional[
+        Callable[[Union[str, np.ndarray]], Union[list[float], np.ndarray]]
+    ] = None,
+    raise_error: bool = True,
+) -> list[list[float]]:
+    if embeddings is None:
+        if imgs is None:
+            if raise_error:
+                raise ValueError("imgs and embeddings cannot be both None")
+            else:
+                return []
+
+        elif not many_imgs(imgs):
+            imgs: list = [imgs]
+
+        if embedding_func is None:
+            if raise_error:
+                raise ValueError("embedding_func cannot be None")
+            else:
+                return []
+
+        embeddings = []
+        for img in imgs:
+            embeds = embedding_func(img)
+            if embeds:
+                if many_vectors(embeds):
+                    embeddings.extend(embeds)  # type: ignore
+                else:
+                    embeddings.append(embeds)  # type: ignore
+
+    elif not many_vectors(embeddings):
+        embeddings: list = [embeddings]
+
+    if not isinstance(embeddings[0], list):
+        embeddings = [convert_list(i) for i in embeddings]
+
+    return embeddings  # type: ignore
+
+
+def get_include(default=None, include=None):
+    if include is None:
+        include = []
+    elif isinstance(include, str):
+        include = [include]
+
+    sincludes = [default] if default else []
+    if "embedding" in include:
+        sincludes.append("embeddings")
+
+    if include:
+        sincludes.append("metadatas")
+
+    return sincludes, include
+
+
+face_recognition_space_map = {
+    "cosine": {
+        "threshold": 0.2,
+        "func": lambda dis, threshold: dis <= threshold,
+    },
+    "l2": {
+        "threshold": 0.35,
+        "func": lambda dis, threshold: dis <= threshold,
+    },
+    "ip": {
+        "threshold": -1.4,
+        "func": lambda dis, threshold: dis <= threshold,
+    },
+}
+
+deeface_metric_map = {
+    "cosine": "cosine",
+    "euclidean": "l2",
+    "euclidean_l2": "l2",
+}
+
+
+def face_recognition_is_similar(dis, threshold, space="cosine"):
+    if threshold is None:
+        threshold = face_recognition_space_map[space]["threshold"]
+
+    return face_recognition_space_map[space]["func"](dis, threshold)
+
+
+def time_now():
+    return datetime.now().strftime("%m-%d-%Y-%I-%M-%S-%p")
+
+
+def get_model_dimension(module, model_name):
+    if module == "face_recognition":
+        return 128
+    elif module == "deepface":
+        dim_map = {
+            "VGG-Face": 2622,
+            "Facenet": 128,
+            "Facenet512": 512,
+            "OpenFace": 128,
+            "DeepFace": 8631,
+            "DeepID": 160,
+            "Dlib": 128,
+            "ArcFace": 512,
+            "Ensemble": 8631,
+        }
+        return dim_map[model_name]
+    else:
+        raise ValueError(f"Unknown module: {module}")
+
+
 class Rect(dict):
     def __init__(self, x, y, w, h):
         super().__init__(x=x, y=y, width=w, height=h)
@@ -85,9 +226,6 @@ class Rect(dict):
     def to_json(self):
         return json.dumps(self)
 
-    def __str__(self):
-        return self.to_json()
-
     def __len__(self):
         return 4
 
@@ -95,7 +233,7 @@ class Rect(dict):
         return f"<Rect x={self.x} y={self.y} width={self.width} height={self.height}>"
 
     def __str__(self):
-        return pprint.pformat(self)
+        return pprint.pformat(self.to_json())
 
     def __getitem__(self, key):
         if key == 0:
@@ -150,72 +288,6 @@ class Rect(dict):
         return not self.__eq__(other)
 
 
-def get_embeddings(
-    imgs=None, embeddings=None, embedding_func=None, single=False, raise_error=True
-):
-    if single:
-        if embeddings is None:
-            if imgs is None:
-                if raise_error:
-                    raise ValueError("Either `embeddings` or `imgs` must be provided.")
-                return None
-
-            embeddings = embedding_func(imgs)
-            if len(embeddings) > 1:
-                warnings.warn(
-                    "Multiple faces found in the img. If you are not sure use `search_many`. Taking first embedding."
-                )
-
-            if len(embeddings) == 0:
-                raise ValueError("No face found in the img.")
-
-        if isinstance(embeddings[0], np.ndarray) or isinstance(embeddings[0], list):
-            embeddings = embeddings[0]
-
-        if isinstance(embeddings, np.ndarray):
-            embeddings = embeddings.tolist()
-        return embeddings
-
-    else:
-        if embeddings is None:
-            if imgs is None:
-                if raise_error:
-                    raise ValueError("Either `embeddings` or `imgs` must be provided.")
-                return None
-            
-            
-            elif not isinstance(imgs, list):
-                imgs = [imgs]
-
-            embeddings = []
-            for img in imgs:
-                embeddings.extend(embedding_func(img))
-
-        if len(embeddings) == 0:
-            return ValueError("No face found in the imgs.")
-
-        if isinstance(embeddings[0], np.ndarray):
-            embeddings = [e.tolist() for e in embeddings]
-
-        return embeddings
-
-
-def get_include(default=None, include=None):
-    if include is None:
-        include = []
-    elif isinstance(include, str):
-        include = [include]
-
-    sincludes = [default] if default else []
-    if "embedding" in include:
-        sincludes.append("embeddings")
-
-    if include:
-        sincludes.append("metadatas")
-
-    return sincludes, include
-
-
 class ImgDB:
     def __init__(self, db_path):
         self.db_path = db_path
@@ -240,7 +312,7 @@ class ImgDB:
         img = img_to_bytes(img)
         self.cursor.execute("""INSERT INTO img VALUES (?, ?)""", (img_id, img))
 
-    def add(self, *, img_id: Union[str, list], img: Union[str, list]):
+    def add(self, *, img_id: Union[str, list], img):
         if isinstance(img, list):
             if len(img) != len(img_id):
                 raise ValueError("Length of `img` and `img_id` must be same.")
@@ -290,191 +362,3 @@ class ImgDB:
     def update(self, *, img_id, img):
         self.cursor.execute("""UPDATE img SET img=? WHERE img_id=?""", (img, img_id))
         self.conn.commit()
-
-
-face_recognition_space_map = {
-    "cosine": {
-        "threshold": 0.63,
-        "func": lambda dis, threshold: dis <= threshold,
-    },
-    "l2": {
-        "threshold": 0.27,
-        "func": lambda dis, threshold: dis <= threshold,
-    },
-    "ip": {
-        "threshold": -1.4,
-        "func": lambda dis, threshold: dis <= threshold,
-    },
-}
-
-deeface_metric_map = {
-    "cosine": "cosine",
-    "euclidean": "l2",
-    "euclidean_l2": "l2",
-}
-
-def face_recognition_is_similar(dis, threshold, space="cosine"):
-    if threshold is None:
-        threshold = face_recognition_space_map[space]["threshold"]
-
-    return face_recognition_space_map[space]["func"](dis, threshold)
-
-
-def time_now():
-    return datetime.now().strftime("%m-%d-%Y-%I-%M-%S-%p")
-
-
-class FaceResults(list["FaceResult"]):
-    def __repr__(self):
-        return f"<FaceResults count={len(self)}>"
-
-    def __str__(self):
-        return pprint.pformat([i.__str__() for i in self])
-
-    def show_img(self, per_row=5, limit=10, page=1, img_size=(100, 100)):
-        import matplotlib.pyplot as plt
-
-        if not self or self[0].get("img", None) is None:
-            print("No image available")
-            return
-
-        if len(self) > limit:
-            self = self[limit * (page - 1) : limit * page]
-
-        # resize
-        for i in self:
-            i["img"] = cv2.resize(i["img"], img_size)
-            i["img"] = cv2.cvtColor(i["img"], cv2.COLOR_BGR2RGB)
-
-        num_images = len(self)
-        num_columns = 4
-        images_per_row = per_row
-
-        num_rows = int(np.ceil(num_images / images_per_row))
-
-        fig, axes = plt.subplots(num_rows, num_columns, figsize=(12, 12))
-
-        if num_rows == 1:
-            axes = np.expand_dims(axes, axis=0)
-        if num_columns == 1:
-            axes = np.expand_dims(axes, axis=1)
-
-        for i, ax in enumerate(axes.flat):
-            if i < num_images:
-                ax.imshow(self[i]["img"])
-                ax.axis("off")
-            else:
-                ax.axis("off")
-
-        plt.tight_layout()
-
-        plt.show()
-
-
-class FaceResult(dict):
-    def __init__(self, id, name=None, distance=None, embedding=None, img=None, **kw):
-        kw["id"] = id
-        kw["name"] = name
-        kw["distance"] = distance
-        kw["embedding"] = embedding
-        kw["img"] = img
-
-        self.kw = kw
-
-        for i in kw:
-            setattr(self, i, kw[i])
-
-        super().__init__(**kw)
-
-    def __repr__(self):
-        return f"<FaceResult id={self['id']} name={self['name']}>"
-
-    def __str__(self):
-        result = {}
-
-        keys = list(self.keys())
-        keys.remove("img")
-        keys.remove("embedding")
-
-        for key in keys:
-            val = self[key]
-            if val:
-                result[key] = val
-
-        return pprint.pformat(result)
-
-    def show_img(self):
-        if self.get("img") is None:
-            print("No image available")
-            return
-        else:
-            import matplotlib.pyplot as plt
-
-            plt.imshow(self["img"])
-            plt.show()
-
-    @classmethod
-    def from_query(
-        cls,
-        result,
-        include: Union[list[str], str],
-        imgdb: ImgDB,
-        single=False,
-    ) -> Union["FaceResult", "FaceResults"]:
-        results: list[FaceResult] = []
-        for r in range(len(result["ids"])):
-            rs = []
-            for i, idx in enumerate(result["ids"][r]):
-                data = {"id": idx}
-                for key in include:
-                    if key[:9] == "embedding":
-                        data["embedding"] = result["embeddings"][r][i]
-                    elif key[:3] == "img":
-                        data["img"] = imgdb.get(idx)
-                    elif key[:8] == "distance":
-                        data["distance"] = result["distances"][r][i]
-                    else:
-                        try:
-                            data[key] = result["metadatas"][r][i][key]
-                        except KeyError:
-                            data[key] = None
-
-                rs.append(FaceResult(**data))
-
-            if len(rs) == 1:
-                results.append(rs[0])
-            elif len(rs) == 0:
-                results.append(None)
-            else:
-                results.append(FaceResults(rs))
-
-        return results
-
-    @classmethod
-    def from_get(
-        cls,
-        result,
-        include,
-        imgdb: ImgDB,
-        single=False,
-    ) -> Union["FaceResult", list["FaceResult"], None]:
-        results = []
-        for i, idx in enumerate(result["ids"]):
-            data = {"id": idx}
-            for key in include:
-                if key[:9] == "embedding":
-                    data["embedding"] = result["embeddings"][i]
-                elif key[:3] == "img":
-                    data["img"] = imgdb.get(idx)
-                else:
-                    try:
-                        data[key] = result["metadatas"][i][key]
-                    except KeyError:
-                        data[key] = None
-
-            results.append(FaceResult(**data))
-
-        if single and results:
-            return results[0]
-
-        return FaceResults(results) or None
