@@ -174,6 +174,7 @@ metric_map = {
 
 
 class FaceDB:
+
     def __init__(
         self,
         *,
@@ -186,6 +187,27 @@ class FaceDB:
         database_backend: Literal["chromadb", "pinecone"] = "chromadb",
         **kw,
     ):
+        """
+        Initialize the FaceDB instance for face recognition.
+
+        Args:
+            path (str, optional): The path to store data. Defaults to "data".
+            metric (str, optional): The distance metric to use for similarity. Defaults to "euclidean".
+            embedding_func (callable, optional): The function to compute face embeddings. Defaults to None.
+            embedding_dim (int, optional): The dimension of face embeddings. Defaults to None.
+            l2_normalization (bool, optional): Whether to perform L2 normalization on embeddings. Defaults to True.
+            module (str, optional): The face recognition module to use. Defaults to "face_recognition".
+            database_backend (str, optional): The database backend to use. Defaults to "chromadb".
+            **kw: Additional keyword arguments for configuration.
+
+        Examples:
+            >>> from facedb import FaceDB
+            >>> facedb = FaceDB()
+            >>> facedb.add("elon_musk", img="elon_musk.jpg")
+            >>> facedb.add("jeff_bezos", img="jeff_bezos.jpg")
+            
+            >>> facedb.recognize(img="elon_musk_2.jpg") # returns FaceResults
+        """
         if path is None:
             path = "data"
 
@@ -281,6 +303,12 @@ class FaceDB:
         return self.db.count()
 
     def count(self):
+        """
+        Get the number of faces in the database (alias for __len__).
+
+        Returns:
+            int: The number of faces in the database.
+        """
         return self.db.count()
 
     def _is_match(self, distance, threshold=None):
@@ -306,6 +334,17 @@ class FaceDB:
         return False
 
     def get_faces(self, img, *, zoom_out=0.25, only_rect=False) -> Union[None, list]:
+        """
+        Extract faces from an image.
+
+        Args:
+            img: The input image.
+            zoom_out (float, optional): Zoom factor for the extracted faces. Defaults to 0.25.
+            only_rect (bool, optional): Whether to return only the face rectangles. Defaults to False.
+
+        Returns:
+            Union[None, list]: A list of extracted faces or face rectangles.
+        """
         img = img_to_cv2(img)
         rects = self.extract_faces(img)
         img_h, img_w = img.shape[:2]
@@ -325,6 +364,16 @@ class FaceDB:
         return None
 
     def check_similar(self, embeddings, threshold=None) -> list:
+        """
+        Check for similar faces in the database.
+
+        Args:
+            embeddings: Face embeddings to compare.
+            threshold (float, optional): The similarity threshold. Defaults to None.
+
+        Returns:
+            list: List of id(if it is match) or false
+        """
         embeddings = get_embeddings(
             imgs=None,
             embeddings=embeddings,
@@ -349,6 +398,20 @@ class FaceDB:
     def recognize(
         self, *, img=None, embedding=None, include=None, threshold=None, top_k=1
     ):
+        """
+        Recognize a face from an image or embedding.
+
+        Args:
+            img: The input image.
+            embedding: Face embeddings for recognition.
+            include (list, optional): List of information to include in the result. Defaults to None.
+            threshold (float, optional): The similarity threshold. Defaults to None.
+            top_k (int, optional): Number of top results to return. Defaults to 1.
+
+        Returns:
+            FaceResults Class
+        """
+        
         single = False
         if embedding is not None:
             if not is_2d(embedding):
@@ -395,6 +458,21 @@ class FaceDB:
         save_just_face=False,
         **metadata,
     ) -> str:
+        """
+        Add a new face to the database.
+
+        Args:
+            name (str): The name of the person associated with the face.
+            img: The input image.
+            embedding: Face embeddings for the new face.
+            id (str, optional): The unique ID for the face. Defaults to None.
+            check_similar (bool, optional): Whether to check for similar faces. Defaults to True.
+            save_just_face (bool, optional): Whether to save only the face region. Defaults to False.
+            **metadata: Additional metadata for the face.
+
+        Returns:
+            str: The ID of the added face.
+        """
         embedding = get_embeddings(
             embeddings=embedding,
             imgs=img,
@@ -442,6 +520,20 @@ class FaceDB:
         names=None,
         check_similar=True,
     ) -> tuple[list, list]:
+        """
+        Add multiple faces to the database.
+
+        Args:
+            embeddings: List of face embeddings to add.
+            imgs: List of input images containing faces.
+            metadata: List of metadata for the faces.
+            ids (list, optional): List of unique IDs for the faces. Defaults to None.
+            names (list, optional): List of names associated with the faces. Defaults to None.
+            check_similar (bool, optional): Whether to check for similar faces. Defaults to True.
+
+        Returns:
+            tuple: A tuple containing lists of added IDs and failed IDs.
+        """
         faces = []
         failed = []
         metadata_posible = metadata is not None
@@ -639,6 +731,18 @@ class FaceDB:
     def search(
         self, *, embedding=None, img=None, include=None, top_k=1
     ) -> list[FaceResults]:
+        """
+        Search for similar faces in the database.
+
+        Args:
+            embedding: Face embeddings for searching.
+            img: The input image for searching.
+            include (list, optional): List of information to include in the result. Defaults to None.
+            top_k (int, optional): Number of top results to return. Defaults to 1.
+
+        Returns:
+            list: List of search results.
+        """
         embedding = get_embeddings(
             embeddings=embedding,
             imgs=img,
@@ -665,6 +769,20 @@ class FaceDB:
         top_k=1,
         **search_params,
     ) -> Union[list[FaceResults], FaceResults]:
+        """
+        Query the database for faces based on specified parameters.
+
+        Args:
+            embedding: Face embeddings for querying.
+            img: The input image for querying.
+            name (str, optional): The name associated with the face. Defaults to None.
+            include (list, optional): List of information to include in the result. Defaults to None.
+            top_k (int, optional): Number of top results to return. Defaults to 1.
+            **search_params: Additional search parameters.
+
+        Returns:
+            Union[list[FaceResults], FaceResults]: Query results.
+        """
         params = {
             "embeddings": None,
             "top_k": top_k,
@@ -720,6 +838,16 @@ class FaceDB:
             raise ValueError("Either embedding, img or name must be provided")
 
     def get(self, id, include=None):
+        """
+        Retrieve information about a specific face from the database.
+
+        Args:
+            id (str): The ID of the face to retrieve.
+            include (list, optional): List of information to include in the result. Defaults to None.
+
+        Returns:
+            FaceResults: Information about the retrieved face.
+        """
         sincludes, include = get_include(default="metadatas", include=include)
         result = self.db.get(ids=[id], include=sincludes)
         return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)
@@ -727,6 +855,20 @@ class FaceDB:
     def update(
         self, id, name=None, embedding=None, img=None, only_face=False, **metadata
     ):
+        """
+        Update information for a specific face in the database.
+
+        Args:
+            id (str): The ID of the face to update.
+            name (str, optional): The new name associated with the face. Defaults to None.
+            embedding: New face embeddings for the face.
+            img: New input image for the face.
+            only_face (bool, optional): Whether to update only the face region. Defaults to False.
+            **metadata: Additional metadata to update.
+
+        Returns:
+            None
+        """
         faces = []
 
         if isinstance(id, list):
@@ -816,9 +958,27 @@ class FaceDB:
         )
 
     def delete(self, id):
+        """
+        Delete a face from the database.
+
+        Args:
+            id (str) or ids (list) of face id.
+
+        Returns:
+            None
+        """
         self.db.delete(ids=id)
 
     def all(self, include=None) -> FaceResults:
+        """
+        Retrieve information about all faces in the database.
+
+        Args:
+            include (list, optional): List of information to include in the result. Defaults to None.
+
+        Returns:
+            FaceResults: Information about all faces in the database.
+        """
         dincludes, include = get_include(default=None, include=include)
         result = self.db.all(include=dincludes)
         return self.db.parser(result, imgdb=self.imgdb, include=include, query=False)[0]  # type: ignore
