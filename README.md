@@ -36,8 +36,6 @@ db = FaceDB(
     path="facedata",
 )
 
-
-
 # Add a new face to the database
 face_id = db.add("John Doe", img="john_doe.jpg")
 
