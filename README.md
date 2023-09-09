@@ -23,7 +23,7 @@ for DeepFace:
 pip install deepface
 ```
 
-## Usage
+## Simple Usage
 
 This will create a chromadb database in the current directory.
 
@@ -49,9 +49,9 @@ else:
     print("Unknown face")
 ```
 
-## Use with pinecone
+## Advanced Usage
 
-You need to install pinecone first
+You need to install pinecone first to use pinecone as the database backend.
 
 ```bash
 pip install pinecone
@@ -103,6 +103,10 @@ result = db.recognize(img=unknown_face, include=['img'])
 if result:
     result.show_img()
 
+# # Use can also use show_img() for multiple results
+results = db.all(include='name')
+results.show_img() # make sure you have matplotlib installed
+
 # or
 img = result['img'] # cv2 image (numpy array)
 
@@ -125,7 +129,65 @@ for results in multi_results:
     for result in results:
         print(f"Found {result['name']} with distance {result['distance']}")
 
+# get all faces
+faces = db.get_all(include=['name', 'img']) 
 
+# Update a face
+db.update(face_id, name="John Doe", img="john_doe.jpg", metadata1="metadata1", metadata2="metadata2")
+
+# Delete a face
+db.delete(face_id)
+
+# Count the number of faces in the database
+count = db.count()
+
+# Get pandas dataframe of all faces
+df = db.all().df
 ```
 
+## Simple Querying
 
+```python
+
+# First add some faces to the database
+db.add("Nelson Mandela", img="mandela.jpg", profession="Politician", country="South Africa")
+db.add("Barack Obama", img="obama.jpg", profession="Politician", country="USA")
+db.add("Einstein", img="einstein.jpg", profession="Scientist", country="Germany")
+
+# Query the database by name
+results = db.query(name="Nelson Mandela")
+
+# Query the database by profession
+results = db.query(profession="Politician")
+```
+
+## Advanced Querying
+
+You can use following operators in queries:
+
+- $eq - Equal to (number, string, boolean)
+- $ne - Not equal to (number, string, boolean)
+- $gt - Greater than (number)
+- $lt - Less than (number)
+- $in - In array (string or number)
+- $regex - Regex match (string)
+
+```python
+results = db.query(
+    profession={"$eq": "Politician"},
+    country={"$in": ["USA", "South Africa"]},
+)
+# or write in a single json
+results = db.query(
+    where={
+        "profession": {"$eq": "Politician"},
+        "country": {"$in": ["USA", "South Africa"]},
+    }
+)
+
+# you can use show_img(), df, query to further filter the results
+results.show_img()
+results.df
+results.query(name="Nelson Mandela")
+
+```
