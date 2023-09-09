@@ -205,7 +205,6 @@ class FaceDB:
             >>> facedb = FaceDB()
             >>> facedb.add("elon_musk", img="elon_musk.jpg")
             >>> facedb.add("jeff_bezos", img="jeff_bezos.jpg")
-            
             >>> facedb.recognize(img="elon_musk_2.jpg") # returns FaceResults
         """
         if path is None:
@@ -425,6 +424,9 @@ class FaceDB:
             imgs=img,
             embedding_func=self.embedding_func,
         )
+        
+        if not embedding:
+            return None
 
         rincludes, include = get_include(default="distances", include=include)
         result = self.db.query(
@@ -432,6 +434,7 @@ class FaceDB:
             top_k=top_k,
             include=rincludes,
         )
+        
 
         results = self.db.parser(result, imgdb=self.imgdb, include=include)
         res = []
@@ -472,12 +475,18 @@ class FaceDB:
 
         Returns:
             str: The ID of the added face.
+        
+        Raises:
+            ValueError: If no face is found in the image.
         """
         embedding = get_embeddings(
             embeddings=embedding,
             imgs=img,
             embedding_func=self.embedding_func,
         )
+        
+        if not embedding:
+            raise ValueError("No face found in the img.")
 
         if check_similar:
             result = self.check_similar(embeddings=embedding)[0]
@@ -565,10 +574,16 @@ class FaceDB:
                         know_face_locations=[r.to(self.module) for r in rects],
                         enforce_detection=False,
                     )
+
+                    if not result:
+                        warnings.warn(f"No face found in the img {i}. Skipping.")
+                        failed.append(i)
+                        continue
+                    
                     try:
                         idx = idxs[i]
                     except IndexError:
-                        raise ValueError("`ids` length and `imgs` length must be same")
+                        raise IndexError("`ids` length and `imgs` length must be same")
 
                     if len(result) > 1:
                         # metadata_posible = False
@@ -616,7 +631,7 @@ class FaceDB:
                 try:
                     idx = idxs[i]
                 except IndexError:
-                    raise ValueError(
+                    raise IndexError(
                         "`ids` length and `embeddings` length must be same"
                     )
 
@@ -630,7 +645,7 @@ class FaceDB:
                     try:
                         res["name"] = names[i]
                     except IndexError:
-                        raise ValueError(
+                        raise IndexError(
                             "`names` length and `embeddings` length must be same"
                         )
                 else:
@@ -640,7 +655,7 @@ class FaceDB:
                     try:
                         rects = self.extract_faces(imgs[i])
                     except IndexError:
-                        raise ValueError(
+                        raise IndexError(
                             "`imgs` length and `embeddings` length must be same"
                         )
 
@@ -654,7 +669,7 @@ class FaceDB:
                     try:
                         res.update(metadata[i])
                     except IndexError:
-                        raise ValueError(
+                        raise IndexError(
                             "`metadatas` length and `embeddings` length must be same"
                         )
 
@@ -748,6 +763,9 @@ class FaceDB:
             imgs=img,
             embedding_func=self.embedding_func,
         )
+        
+        if not embedding:
+            return []
 
         sincludes, include = get_include(default="distances", include=include)
 
@@ -798,6 +816,9 @@ class FaceDB:
             embedding_func=self.embedding_func,
             raise_error=False,
         )
+        
+        if not params["embeddings"]:
+            params["embeddings"] = None
 
         if name is not None:
             params["where"] = {"name": name}
