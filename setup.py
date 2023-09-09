@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = "0.0.5"
+version = "0.0.6"
 description = "A python package for large scale face recognition."
 
 with open("README.md", encoding="utf-8") as f:
@@ -53,7 +53,7 @@ setup(
     install_requires=required,
     keywords=keywords,
     classifiers=classifiers,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     include_package_data=True,
     zip_safe=False,
 )
