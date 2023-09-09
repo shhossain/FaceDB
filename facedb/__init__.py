@@ -1,1 +1,0 @@
-from facedb.db import FaceDB, FaceResult,FaceResults
