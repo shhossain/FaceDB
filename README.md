@@ -128,6 +128,4 @@ for results in multi_results:
 
 ```
 
-## Documentation
 
-Will be available soon.

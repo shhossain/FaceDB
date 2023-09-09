@@ -46,9 +46,50 @@ class TestFaceDB(unittest.TestCase):
             self.assertIn("joe_biden", result["name"])  # type: ignore
 
     def test_recognize_unknown_face(self):
-        unknown_face = current_dir / "imgs" / "barack_obama.jpeg"
+        unknown_face = current_dir / "imgs" / "barak_obama.jpeg"
         result = self.db.recognize(img=unknown_face, include=["name"])
         self.assertIsNone(result)
+
+    def test_update(self):
+        img = current_dir / "imgs" / "joe_biden_2.jpeg"
+        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        self.db.update(id=idx, name="joe_biden_2")
+
+        result = self.db.recognize(img=img, include=["name"])
+        self.assertIsNotNone(result)
+        if result:
+            self.assertIn("joe_biden_2", result["name"])  # type: ignore
+
+    def test_get(self):
+        img = current_dir / "imgs" / "joe_biden_2.jpeg"
+        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        result = self.db.get(id=idx, include=["name"])
+        self.assertIsNotNone(result)
+        if result:
+            self.assertIn("joe_biden_2", result["name"])  # type: ignore
+
+    def test_delete(self):
+        img = current_dir / "imgs" / "joe_biden_2.jpeg"
+        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        self.db.delete(id=idx)
+        result = self.db.get(id=idx, include=["name"])
+        self.assertIsNone(result)
+
+    def test_search(self):
+        img = current_dir / "imgs" / "joe_biden_2.jpeg"
+        emb = self.db.embedding_func(img)
+        result = self.db.search(embedding=emb, include=["name"])
+        self.assertIsNotNone(result)
+
+    def test_query(self):
+        results = self.db.query(name="narendra_modi", include=["name"])
+        self.assertIsNotNone(results)
+        if results:
+            self.assertEqual(results[0]["name"], "narendra_modi")  # type: ignore
+
+    # @classmethod
+    # def tearDownClass(cls):
+    #     shutil.rmtree("facedata")
 
 
 if __name__ == "__main__":
