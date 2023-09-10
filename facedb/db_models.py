@@ -569,7 +569,7 @@ class PineconeDB(BaseDB):
             ids = [ids]
 
         return self.query(
-            embeddings=[0] * self.dimension, top_k=len(ids), where={"id": {"$in": ids}}
+            embeddings=[0] * self.dimension, top_k=len(ids), where={"id": {"$in": ids}}, include=include
         )
 
     def all(self, include=None):
