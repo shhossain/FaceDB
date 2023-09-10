@@ -443,7 +443,9 @@ class FaceDB:
             top_k (int, optional): Number of top results to return. Defaults to 1.
 
         Returns:
-            FaceResults Class
+            False: If no face is found in the image.
+            None: If no match is found.
+            FaceResults: If a match is found.
         """
 
         single = False
@@ -467,8 +469,8 @@ class FaceDB:
 
         if is_none_or_empty(embedding):
             if size == 0:
-                return None
-            return [None] * size
+                return False
+            return [False] * size
 
         rincludes, include = get_include(default="distances", include=include)
         result = self.db.query(
