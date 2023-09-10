@@ -30,7 +30,7 @@ from facedb.db_tools import (
     Tuple,
 )
 
-from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
+from facedb.db_models import FaceResults, PineconeDB, ChromaDB
 
 from pathlib import Path
 
