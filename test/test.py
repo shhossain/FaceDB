@@ -31,15 +31,17 @@ class TestFaceDB(unittest.TestCase):
         names = []
         for file in files:
             imgs.append(file)
-            names.append(Path(file).name)
+            names.append(Path(file).stem)
 
         ids, failed_indexes = self.db.add_many(imgs=imgs, names=names)
+        print(self.db.all(include=["name"]))
 
         self.assertEqual(len(failed_indexes), 1)
         self.assertEqual(len(ids), 2)
 
     def test_recognize_known_face(self):
-        known_face = current_dir / "imgs" / "joe_biden_2.jpeg"
+        known_face = str(current_dir / "imgs" / "joe_biden_2.jpeg")
+        print("1 Path:", known_face)
         result = self.db.recognize(img=known_face, include=["name"])
         self.assertIsNotNone(result)
         if result:
@@ -52,7 +54,8 @@ class TestFaceDB(unittest.TestCase):
 
     def test_update(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
-        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        print("Path:", img)
+        idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         self.db.update(id=idx, name="joe_biden_2")
 
         result = self.db.recognize(img=img, include=["name"])
@@ -62,7 +65,8 @@ class TestFaceDB(unittest.TestCase):
 
     def test_get(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
-        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        print("Path:", img)
+        idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         result = self.db.get(id=idx, include=["name"])
         self.assertIsNotNone(result)
         if result:
@@ -70,7 +74,7 @@ class TestFaceDB(unittest.TestCase):
 
     def test_delete(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
-        idx = self.db.recognize(img=img, include=["name"]).idx  # type: ignore
+        idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         self.db.delete(id=idx)
         result = self.db.get(id=idx, include=["name"])
         self.assertIsNone(result)
@@ -87,10 +91,9 @@ class TestFaceDB(unittest.TestCase):
         if results:
             self.assertEqual(results[0]["name"], "narendra_modi")  # type: ignore
 
-    # @classmethod
-    # def tearDownClass(cls):
-    #     shutil.rmtree("facedata")
-
+    @classmethod
+    def tearDownClass(cls):
+        cls.db.delete_all()
 
 if __name__ == "__main__":
     unittest.main()

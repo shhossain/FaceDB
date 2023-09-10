@@ -14,6 +14,7 @@ from pathlib import Path
 import warnings
 import pprint
 import json
+import requests
 
 
 def l2_normalize(x):
@@ -28,9 +29,15 @@ def is_none_or_empty(x):
 
 
 def img_to_cv2(img):
-    if isinstance(img, str) or isinstance(img, Path):
-        img = str(img)
-        img = cv2.imread(img)
+    if isinstance(img, str):
+        if "https://" in img or "http://" in img:
+            img = requests.get(img).content
+            img = np.frombuffer(img, np.uint8)
+            img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+        else:
+            img = cv2.imread(img)
+    elif isinstance(img, Path):
+        img = cv2.imread(str(img))
     elif isinstance(img, np.ndarray):
         pass
     elif isinstance(img, Image.Image):
@@ -38,26 +45,17 @@ def img_to_cv2(img):
     elif isinstance(img, io.BytesIO):
         img = np.frombuffer(img.getvalue(), np.uint8)
         img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+    elif isinstance(img, bytes):
+        img = np.frombuffer(img, np.uint8)
+        img = cv2.imdecode(img, cv2.IMREAD_COLOR)
     else:
         raise TypeError(f"Unknown type of img: {type(img)}")
     return img
 
 
 def img_to_bytes(img):
-    if isinstance(img, str) or isinstance(img, Path):
-        img = str(img)
-        with open(img, "rb") as f:
-            img = f.read()
-    elif isinstance(img, np.ndarray):
-        img = cv2.imencode(".jpg", img)[1].tobytes()
-    elif isinstance(img, Image.Image):
-        img = np.array(img)
-        img = cv2.imencode(".jpg", img)[1].tobytes()
-    elif isinstance(img, io.BytesIO):
-        img = img.getvalue()
-    else:
-        raise TypeError(f"Unknown type of img: {type(img)}")
-    return img
+    img = img_to_cv2(img)
+    return cv2.imencode(".jpg", img)[1].tobytes()
 
 
 def many_vectors(obj):
@@ -349,6 +347,10 @@ class ImgDB:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_table()
+    
+    def delete_all(self):
+        self.cursor.execute("""DELETE FROM img""")
+        self.conn.commit()
 
     def __del__(self):
         self.conn.close()

@@ -611,14 +611,21 @@ class ChromaDB(BaseDB):
         if path is None:
             path = "data"
         if client is None:
-            client = chromadb.PersistentClient(path)
+            self.client = chromadb.PersistentClient(path)
+        else:
+            self.client = client
 
-        self.db = client.get_or_create_collection(
+        self.path = Path(path)
+
+        self.db = self.client.get_or_create_collection(
             name=collection_name,
             metadata={
                 "hnsw:space": metric,
             },
         )
+        
+        self.metric = metric
+        self.collection_name = collection_name
 
     def add(self, ids, embeddings, metadatas=None):
         return self.db.add(ids=ids, embeddings=embeddings, metadatas=metadatas)
@@ -712,4 +719,4 @@ class ChromaDB(BaseDB):
             return self.get_parser(result, imgdb, include)
 
     def delete_all(self):
-        shutil.rmtree(str(self.path))
+        self.client.delete_collection(self.collection_name)

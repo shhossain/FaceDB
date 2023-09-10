@@ -508,7 +508,7 @@ class FaceDB:
                 return result
 
         metadata["name"] = name
-        idx = id or name + "-" + time_now()
+        idx = id or re.sub(r"[\W]", "-", name) + "-" + time_now()
         if img is not None:
             if save_just_face:
                 img = self.get_faces(img)
@@ -937,6 +937,15 @@ class FaceDB:
 
         self.imgdb.delete(id)
         self.db.delete(ids=id)
+    
+    def delete_all(self):
+        """
+        Delete all faces from the database.  This action is irreversible. Use with caution.
+        """
+        self.db.delete_all()
+        self.imgdb.delete_all()
+
+        
 
     def all(self, include=None) -> FaceResults:
         """
