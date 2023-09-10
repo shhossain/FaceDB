@@ -10,9 +10,30 @@ DeepFace = None
 deepface_distance = None
 face_recognition = None
 
+from facedb.db_tools import (
+    get_embeddings,
+    get_include,
+    ImgDB,
+    Rect,
+    img_to_cv2,
+    face_recognition_is_match,
+    is_list_of_img,
+    is_2d,
+    time_now,
+    get_model_dimension,
+    l2_normalize,
+    is_none_or_empty,
+    Union,
+    Literal,
+    Optional,
+    List
+)
+
+from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
+
+from pathlib import Path
+
 import_lock = threading.Lock()
-
-
 def load_module(module: Literal["deepface", "face_recognition"]):
     with import_lock:
         if module == "deepface":
@@ -39,30 +60,6 @@ def load_module(module: Literal["deepface", "face_recognition"]):
             raise ValueError(
                 "Currently only `deepface` and `face_recognition` are supported."
             )
-
-
-from facedb.db_tools import (
-    get_embeddings,
-    get_include,
-    ImgDB,
-    Rect,
-    img_to_cv2,
-    face_recognition_is_match,
-    is_list_of_img,
-    is_2d,
-    time_now,
-    get_model_dimension,
-    l2_normalize,
-    is_none_or_empty,
-    Union,
-    Literal,
-    Optional,
-    List
-)
-
-from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
-
-from pathlib import Path
 
 
 def create_deepface_embedding_func(
