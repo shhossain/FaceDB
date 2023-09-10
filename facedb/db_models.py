@@ -1,13 +1,16 @@
-from typing import Literal, Optional
 import numpy as np
 import chromadb
 import cv2
 import pprint
-from typing import Union
 from pathlib import Path
 import os
 import shutil
 from facedb.query import Query, QueryError
+
+try:
+    from typing import Literal, Optional, Union, List
+except ImportError:
+    from typing_extensions import Literal, Optional, Union, List
 
 pinecone = None
 
@@ -23,7 +26,7 @@ def many_vectors(obj):
     return False
 
 
-class FaceResults(list["FaceResult"]):
+class FaceResults(List["FaceResult"]):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
 
@@ -43,7 +46,7 @@ class FaceResults(list["FaceResult"]):
         for i in args:
             q.update(i)
         q.update(kw)
-        
+
         query = Query(q)
         results = list(filter(query.match, self))  # type: ignore
         return FaceResults(results)
@@ -355,7 +358,7 @@ class BaseDB:
             ids = [ids]
         return self._get(ids, include, where)
 
-    def parser(self, result, imgdb, include=None, query=True) -> list[FaceResults]:
+    def parser(self, result, imgdb, include=None, query=True) -> List[FaceResults]:
         raise NotImplementedError
 
     def all(self, include=None):
@@ -378,7 +381,7 @@ class PineconeDB(BaseDB):
                 import pinecone
             except ImportError:
                 raise ImportError(
-                    "pinecone is not installed. Please install it with `pip install pinecone-client`"
+                    "pinecone is not installed. Install it with `pip install pinecone-client`"
                 )
 
         self.index: pinecone.Index = None  # type: ignore
@@ -394,11 +397,12 @@ class PineconeDB(BaseDB):
         assert dimension is not None, "dimension must be provided"
 
         if not index:
-            api_key = kw.get("api_key", os.environ.get("PINECONE_API_KEY", None))
+            api_key = kw.get("api_key", None) or os.environ.get(
+                "PINECONE_API_KEY", None
+            )
             environment = kw.get(
                 "environment",
-                kw.get("env", os.environ.get("PINECONE_ENVIRONMENT", None)),
-            )
+            ) or os.environ.get("PINECONE_ENVIRONMENT", None)
 
             if api_key is None or environment is None:
                 raise ConnectionError(
@@ -484,7 +488,7 @@ class PineconeDB(BaseDB):
         self,
         embeddings,
         top_k=1,
-        include: Optional[list[Literal["embeddings", "metadatas"]]] = None,
+        include: Optional[List[Literal["embeddings", "metadatas"]]] = None,
         where=None,
     ):
         params = {
@@ -514,7 +518,7 @@ class PineconeDB(BaseDB):
 
     def parser(
         self, result, imgdb, include=None, query=True
-    ) -> Union[FaceResults, list[FaceResults]]:
+    ) -> Union[FaceResults, List[FaceResults]]:
         if isinstance(result, dict):
             result = [result]
 
@@ -523,7 +527,7 @@ class PineconeDB(BaseDB):
         elif isinstance(include, str):
             include = [include]
 
-        results: list[FaceResults] = []
+        results: List[FaceResults] = []
 
         for i in range(len(result)):
             rs = []
@@ -567,7 +571,6 @@ class PineconeDB(BaseDB):
         return self.query(
             embeddings=[0] * self.dimension, top_k=len(ids), where={"id": {"$in": ids}}
         )
-        
 
     def all(self, include=None):
         get_metadata = None
@@ -630,7 +633,7 @@ class ChromaDB(BaseDB):
         self,
         embeddings,
         top_k=1,
-        include: Optional[list[Literal["embeddings", "metadatas", "distances"]]] = [
+        include: Optional[List[Literal["embeddings", "metadatas", "distances"]]] = [
             "distances"
         ],
         where=None,
@@ -648,8 +651,8 @@ class ChromaDB(BaseDB):
     def all(self, include=None):
         return self.db.get(include=include or ["metadatas"])
 
-    def query_parser(self, result, imgdb, include=["distances"]) -> list[FaceResults]:
-        results: list[FaceResults] = []
+    def query_parser(self, result, imgdb, include=["distances"]) -> List[FaceResults]:
+        results: List[FaceResults] = []
         for i in range(len(result["ids"])):
             rs = []
             for j, id in enumerate(result["ids"][i]):
@@ -684,7 +687,7 @@ class ChromaDB(BaseDB):
         elif isinstance(include, str):
             include = [include]
 
-        results: list[FaceResult] = []
+        results: List[FaceResult] = []
         for i, id in enumerate(result["ids"]):
             data = {"id": id}
             for k in include:

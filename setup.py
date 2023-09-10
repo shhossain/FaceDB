@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
+import sys
 
-version = "0.0.6"
+version = "0.0.7"
 description = "A python package for large scale face recognition."
 
 with open("README.md", encoding="utf-8") as f:
@@ -11,6 +12,9 @@ author = "sifat (shhossain)"
 
 with open("requirements.txt") as f:
     required = f.read().splitlines()
+
+if sys.version_info < (3, 8):
+    required.append("typing_extensions")
 
 keywords = ["python", "face", "recognition"]
 
@@ -53,7 +57,7 @@ setup(
     install_requires=required,
     keywords=keywords,
     classifiers=classifiers,
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     include_package_data=True,
     zip_safe=False,
 )

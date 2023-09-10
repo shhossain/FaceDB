@@ -1,7 +1,6 @@
 import re
 import numpy as np
 from tqdm.auto import tqdm
-from typing import Literal, Callable, Optional, Union
 import cv2
 import warnings
 import threading
@@ -55,6 +54,10 @@ from facedb.db_tools import (
     get_model_dimension,
     l2_normalize,
     is_none_or_empty,
+    Union,
+    Literal,
+    Optional,
+    List
 )
 
 from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
@@ -575,7 +578,7 @@ class FaceDB:
 
             for i, img in enumerate(tqdm(imgs, desc="Extracting faces")):
                 try:
-                    rects: list[Rect] = self.get_faces(img, only_rect=True)  # type: ignore
+                    rects: List[Rect] = self.get_faces(img, only_rect=True)  # type: ignore
                     if is_none_or_empty(rects):
                         print(f"No face found in the img {i}. Skipping.")
                         failed.append(i)
@@ -755,7 +758,7 @@ class FaceDB:
 
     def search(
         self, *, embedding=None, img=None, include=None, top_k=1
-    ) -> list[FaceResults]:
+    ) -> List[FaceResults]:
         """
         Search for similar faces in the database.
 
@@ -796,7 +799,7 @@ class FaceDB:
         include=None,
         top_k=1,
         **search_params,
-    ) -> Union[list[FaceResults], FaceResults]:
+    ) -> Union[List[FaceResults], FaceResults]:
         """
         Query the database for faces based on specified parameters.
 
@@ -809,7 +812,7 @@ class FaceDB:
             **search_params: Additional search parameters.
 
         Returns:
-            Union[list[FaceResults], FaceResults]: Query results.
+            Union[List[FaceResults], FaceResults]: Query results.
         """
         params = {
             "embeddings": None,

@@ -1,6 +1,11 @@
 from datetime import datetime
 import sqlite3
-from typing import Callable, Union, Optional
+
+try:
+    from typing import Optional, Union, List, Callable, Literal
+except ImportError:
+    from typing_extensions import Optional, Union, List, Callable, Literal
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -20,6 +25,7 @@ def is_none_or_empty(x):
         return True
     else:
         return len(x) == 0
+
 
 def img_to_cv2(img):
     if isinstance(img, str) or isinstance(img, Path):
@@ -88,13 +94,13 @@ def convert_shape(x):
 
 
 def get_embeddings(
-    imgs: Optional[Union[str, list[str], np.ndarray, list[np.ndarray]]] = None,  # type: ignore
-    embeddings: Optional[Union[list[list[float]], list[np.ndarray]]] = None,  # type: ignore
+    imgs: Optional[Union[str, List[str], np.ndarray, List[np.ndarray]]] = None,  # type: ignore
+    embeddings: Optional[Union[List[List[float]], List[np.ndarray]]] = None,  # type: ignore
     embedding_func: Optional[
-        Callable[[Union[str, np.ndarray]], Union[list[float], np.ndarray]]
+        Callable[[Union[str, np.ndarray]], Union[List[float], np.ndarray]]
     ] = None,
     raise_error: bool = True,
-) -> list[list[float]]:
+) -> List[List[float]]:
     if embeddings is None:
         if imgs is None:
             if raise_error:
@@ -103,7 +109,7 @@ def get_embeddings(
                 return []
 
         elif not is_list_of_img(imgs):
-            imgs = [imgs] # type: ignore
+            imgs = [imgs]  # type: ignore
 
         if embedding_func is None:
             if raise_error:
@@ -112,12 +118,12 @@ def get_embeddings(
                 return []
 
         embeddings = []
-        for img in imgs: # type: ignore
+        for img in imgs:  # type: ignore
             embeds = embedding_func(img)
             if is_none_or_empty(embeds):
                 continue
             for embed in embeds:
-                embeddings.append(embed) # type: ignore
+                embeddings.append(embed)  # type: ignore
 
     embeddings = convert_shape(embeddings).tolist()
 
@@ -371,7 +377,7 @@ class ImgDB:
             self._add(img_id=img_id, img=img)
         self.conn.commit()
 
-    def add_rects(self, *, img, img_ids: list[str], rects: list[Rect], zoom_out=0.25):
+    def add_rects(self, *, img, img_ids: List[str], rects: List[Rect], zoom_out=0.25):
         img = img_to_cv2(img)
         img_h, img_w = img.shape[:2]
         for rect in rects:
@@ -412,8 +418,10 @@ class ImgDB:
         img = img_to_bytes(img)
         self.cursor.execute("""UPDATE img SET img=? WHERE img_id=?""", (img, img_id))
         self.conn.commit()
-    
+
     def auto(self, *, img_id, img):
         img = img_to_bytes(img)
-        self.cursor.execute("""INSERT OR REPLACE INTO img VALUES (?, ?)""", (img_id, img))
+        self.cursor.execute(
+            """INSERT OR REPLACE INTO img VALUES (?, ?)""", (img_id, img)
+        )
         self.conn.commit()
