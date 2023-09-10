@@ -2,9 +2,9 @@ from datetime import datetime
 import sqlite3
 
 try:
-    from typing import Optional, Union, List, Callable, Literal
+    from typing import Optional, Union, List, Callable, Literal, Tuple
 except ImportError:
-    from typing_extensions import Optional, Union, List, Callable, Literal
+    from typing_extensions import Optional, Union, List, Callable, Literal, Tuple
 
 import cv2
 import numpy as np

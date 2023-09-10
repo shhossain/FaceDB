@@ -26,7 +26,8 @@ from facedb.db_tools import (
     Union,
     Literal,
     Optional,
-    List
+    List,
+    Tuple,
 )
 
 from facedb.db_models import BaseDB, FaceResult, FaceResults, PineconeDB, ChromaDB
@@ -538,7 +539,7 @@ class FaceDB:
         ids=None,
         names=None,
         check_similar=True,
-    ) -> tuple[list, list]:
+    ) -> Tuple[list, list]:
         """
         Add multiple faces to the database.
 
