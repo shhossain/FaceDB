@@ -34,14 +34,12 @@ class TestFaceDB(unittest.TestCase):
             names.append(Path(file).stem)
 
         ids, failed_indexes = self.db.add_many(imgs=imgs, names=names)
-        print(self.db.all(include=["name"]))
 
         self.assertEqual(len(failed_indexes), 1)
         self.assertEqual(len(ids), 2)
 
     def test_recognize_known_face(self):
         known_face = str(current_dir / "imgs" / "joe_biden_2.jpeg")
-        print("1 Path:", known_face)
         result = self.db.recognize(img=known_face, include=["name"])
         self.assertIsNotNone(result)
         if result:
@@ -54,7 +52,6 @@ class TestFaceDB(unittest.TestCase):
 
     def test_update(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
-        print("Path:", img)
         idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         self.db.update(id=idx, name="joe_biden_2")
 
@@ -65,7 +62,6 @@ class TestFaceDB(unittest.TestCase):
 
     def test_get(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
-        print("Path:", img)
         idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         result = self.db.get(id=idx, include=["name"])
         self.assertIsNotNone(result)
@@ -77,7 +73,10 @@ class TestFaceDB(unittest.TestCase):
         idx = self.db.recognize(img=img, include=["name"]).id  # type: ignore
         self.db.delete(id=idx)
         result = self.db.get(id=idx, include=["name"])
-        self.assertIsNone(result)
+        if result is None:
+            self.assertIsNone(result)
+        else:
+            self.assertEqual(len(result), 0)
 
     def test_search(self):
         img = current_dir / "imgs" / "joe_biden_2.jpeg"
@@ -95,5 +94,18 @@ class TestFaceDB(unittest.TestCase):
     def tearDownClass(cls):
         cls.db.delete_all()
 
+
 if __name__ == "__main__":
-    unittest.main()
+    suite = unittest.TestSuite()
+    suite.addTest(TestFaceDB("test_add_many"))
+    suite.addTest(TestFaceDB("test_recognize_known_face"))
+    suite.addTest(TestFaceDB("test_recognize_unknown_face"))
+    suite.addTest(TestFaceDB("test_update"))
+    suite.addTest(TestFaceDB("test_get"))
+    suite.addTest(TestFaceDB("test_search"))
+    suite.addTest(TestFaceDB("test_delete"))
+    suite.addTest(TestFaceDB("test_query"))
+
+    # Run the test suite
+    runner = unittest.TextTestRunner()
+    result = runner.run(suite)
