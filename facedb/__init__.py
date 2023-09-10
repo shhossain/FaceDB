@@ -1,1 +1,2 @@
-from facedb.db import FaceDB, FaceResult,FaceResults
+from facedb.db import FaceDB
+from facedb.db_models import FaceResult, FaceResults
