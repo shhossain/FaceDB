@@ -188,9 +188,6 @@ fthresholds = {
 }
 
 
-
-
-
 def time_now():
     return datetime.now().strftime("%m-%d-%Y-%I-%M-%S-%p")
 
@@ -213,6 +210,39 @@ def get_model_dimension(module, model_name):
         return dim_map[model_name]
     else:
         raise ValueError(f"Unknown module: {module}")
+
+
+class FailedImageIndex(int):
+    def __new__(cls, value, failed_reason):
+        obj = super().__new__(cls, value)
+        obj.failed_reason = failed_reason
+        return obj
+
+    def __init__(self, value, failed_reason):
+        self.failed_reason = failed_reason
+        self.idx = value
+
+    def __repr__(self):
+        return f"{self.idx} ({self.failed_reason})"
+
+
+class FailedImageIndexList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.failed_reasons = []
+
+    def append(self, value, failed_reason):
+        super().append(FailedImageIndex(value, failed_reason))
+        self.failed_reasons.append(failed_reason)
+
+    def __repr__(self):
+        txt = "FailedImageIndexList:\n"
+        for i, j in zip(self, self.failed_reasons):
+            txt += f"{i} ({j})\n"
+        return txt
+
+    def __str__(self):
+        return self.__repr__()
 
 
 class Rect(dict):
@@ -324,7 +354,7 @@ class ImgDB:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_table()
-    
+
     def delete_all(self):
         self.cursor.execute("""DELETE FROM img""")
         self.conn.commit()

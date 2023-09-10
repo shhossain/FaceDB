@@ -28,6 +28,7 @@ from facedb.db_tools import (
     List,
     Tuple,
     fthresholds,
+    FailedImageIndexList
 )
 
 from facedb.db_models import FaceResults, PineconeDB, ChromaDB
@@ -587,7 +588,7 @@ class FaceDB:
             tuple: A tuple containing lists of added IDs and failed IDs.
         """
         faces = []
-        failed = []
+        failed = FailedImageIndexList()
         metadata_posible = metadata is not None
         if embeddings is None:
             if metadata_posible:
@@ -611,7 +612,7 @@ class FaceDB:
                     rects: List[Rect] = self.get_faces(img, only_rect=True)  # type: ignore
                     if is_none_or_empty(rects):
                         print(f"No face found in the img {i}. Skipping.")
-                        failed.append(i)
+                        failed.append(i, failed_reason="No face found in the img")
                         continue
 
                     result = self.embedding_func(
@@ -622,7 +623,7 @@ class FaceDB:
 
                     if is_none_or_empty(result):
                         print(f"No face found in the img {i}. Skipping.")
-                        failed.append(i)
+                        failed.append(i, failed_reason="No face found in the img")
                         continue
 
                     try:
@@ -661,11 +662,11 @@ class FaceDB:
                         faces.append(res)
                     else:
                         print(f"No face found in the img {i}. Skipping.")
-                        failed.append(i)
+                        failed.append(i, failed_reason="No face found in the img")
                         continue
                 except Exception as e:
                     print(f"Error in img {i}. Skipping.", e)
-                    failed.append(i)
+                    failed.append(i, failed_reason=str(e))
                     continue
 
             result = None
@@ -732,7 +733,7 @@ class FaceDB:
                     print(
                         f"Similar face {r} already exists. If you want to add anyway, set `check_similar` to `False`."
                     )
-                    failed.append(faces[i]["index"])
+                    failed.append(faces[i]["index"], failed_reason=f"Similar face {r} already exists.")
                     faces[i] = None
 
             res = None
