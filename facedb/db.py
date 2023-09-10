@@ -16,7 +16,6 @@ from facedb.db_tools import (
     ImgDB,
     Rect,
     img_to_cv2,
-    face_recognition_is_match,
     is_list_of_img,
     is_2d,
     time_now,
@@ -28,6 +27,7 @@ from facedb.db_tools import (
     Optional,
     List,
     Tuple,
+    fthresholds,
 )
 
 from facedb.db_models import FaceResults, PineconeDB, ChromaDB
@@ -35,6 +35,8 @@ from facedb.db_models import FaceResults, PineconeDB, ChromaDB
 from pathlib import Path
 
 import_lock = threading.Lock()
+
+
 def load_module(module: Literal["deepface", "face_recognition"]):
     with import_lock:
         if module == "deepface":
@@ -236,7 +238,7 @@ class FaceDB:
                 "Deepface module is not calibrated for vector database. Use `face_recognition` instead."
             )
 
-        self.metric = metric_map[database_backend][metric]
+        self.metric = metric
         self.embedding_func: Callable = None  # type: ignore
         self.extract_faces: Callable = None  # type: ignore
         self.module = module
@@ -248,7 +250,7 @@ class FaceDB:
             self.db = ChromaDB(
                 path=str(path),
                 client=kw.pop("client", None),
-                metric=self.metric,
+                metric=metric_map[database_backend][metric],
                 collection_name=kw.pop("collection_name", "facedb"),
             )
 
@@ -256,7 +258,7 @@ class FaceDB:
             self.db = PineconeDB(
                 index=kw.pop("index", None),
                 index_name=kw.pop("index_name", None),
-                metric=self.metric,
+                metric=metric_map[database_backend][metric],
                 dimension=embedding_dim
                 or get_model_dimension(module, self.deepface_model_name),
                 api_key=kw.pop("pinecone_api_key", None),
@@ -301,6 +303,7 @@ class FaceDB:
             path.mkdir(parents=True)
 
         self.imgdb = ImgDB(db_path=str(path / "img.db"))
+        self.threshold = self.get_threshold()
 
     def __len__(self):
         return self.db.count()
@@ -314,27 +317,54 @@ class FaceDB:
         """
         return self.db.count()
 
-    def _is_match(self, distance, threshold=None):
+    def get_threshold(self) -> Tuple[str, str, float]:
+        """
+        Get the similarity threshold for the database.
+        
+        Returns:
+            Tuple[str, str, float]: The similarity threshold.
+        """
+        
+        metric = self.metric
         if self.module == "deepface":
-            metric = self.metric
+            if metric == "euclidean" and self.l2_normalization:
+                metric = "euclidean_l2"
 
             threshold = deepface_distance.findThreshold(  # type: ignore
                 self.deepface_model_name, metric
             )
-            if distance <= threshold:
-                return True
-
+            return "le", "negative", threshold
+        
         elif self.module == "face_recognition":
-            if face_recognition_is_match(
-                db_backend=self.db_backend,
-                metric=self.metric,
-                value=distance,
-                threshold=threshold,
-                l2_normalization=self.l2_normalization,
-            ):
-                return True
+            metric = metric_map[self.db_backend][metric]
+            if self.l2_normalization:
+                metric_threshold = fthresholds[self.db_backend][metric + "_l2"]
+            else:
+                metric_threshold = fthresholds[self.db_backend][metric]
 
-        return False
+            return metric_threshold["operator"], metric_threshold['direction'], metric_threshold['value']
+
+        else:
+            raise ValueError(
+                "Currently only `deepface` and `face_recognition` are supported."
+            )
+
+    def _is_match(self, distance, threshold=None):
+        op,_, threshold = self.threshold
+        if op == "le":
+            return distance <= threshold
+        elif op == "ge":
+            return distance >= threshold
+        elif op == "eq":
+            return distance == threshold
+        elif op == "l":
+            return distance < threshold
+        elif op == "g":
+            return distance > threshold
+        elif op == "ne":
+            return distance != threshold
+        else:
+            raise ValueError("Invalid operator.")
 
     def get_faces(self, img, *, zoom_out=0.25, only_rect=False) -> Union[None, list]:
         """
@@ -447,7 +477,7 @@ class FaceDB:
             include=rincludes,
         )
 
-        results = self.db.parser(result, imgdb=self.imgdb, include=include)
+        results = self.db.parser(result, imgdb=self.imgdb, include=include, threshold=self.threshold)  # type: ignore
         res = []
         for result in results:
             if result is None:
@@ -786,7 +816,7 @@ class FaceDB:
             include=sincludes,
         )
 
-        return self.db.parser(result, imgdb=self.imgdb, include=include)  # type: ignore
+        return self.db.parser(result, imgdb=self.imgdb, include=include, threshold=self.threshold)  # type: ignore
 
     def query(
         self,
@@ -847,7 +877,7 @@ class FaceDB:
             result = self.db.query(
                 **params,
             )
-            return self.db.parser(result, imgdb=self.imgdb, include=include)  # type: ignore
+            return self.db.parser(result, imgdb=self.imgdb, include=include, threshold=self.threshold)  # type: ignore
 
         elif params["where"] is not None:
             return self.all(include=["name"]).query(**params["where"])
@@ -937,15 +967,13 @@ class FaceDB:
 
         self.imgdb.delete(id)
         self.db.delete(ids=id)
-    
+
     def delete_all(self):
         """
         Delete all faces from the database.  This action is irreversible. Use with caution.
         """
         self.db.delete_all()
         self.imgdb.delete_all()
-
-        
 
     def all(self, include=None) -> FaceResults:
         """

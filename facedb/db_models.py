@@ -4,8 +4,8 @@ import cv2
 import pprint
 from pathlib import Path
 import os
-import shutil
-from facedb.query import Query, QueryError
+from facedb.query import Query
+from math import ceil
 
 try:
     from typing import Literal, Optional, Union, List
@@ -24,6 +24,13 @@ def many_vectors(obj):
         elif isinstance(obj[0], np.ndarray):
             return True
     return False
+
+
+def calculate_confidence(dis, threshold, direction, assume=80):
+    if direction == "positive":
+        return ceil((assume / (threshold)) * (dis))
+    elif direction == "negative":
+        return ceil((assume / (1 - threshold)) * (1 - dis))
 
 
 class FaceResults(List["FaceResult"]):
@@ -79,8 +86,8 @@ class FaceResults(List["FaceResult"]):
         ct = 0
         for i in self:
             t = f"id={i['id']} name={i['name']}"
-            if i.distance:
-                t += f" distance={i['distance']}"
+            if i.get("confidence"):
+                t += f" confidence={i['confidence']}%"
             t += ",\n"
             txt += t
             if ct == 5:
@@ -246,8 +253,8 @@ class FaceResult(dict):
 
     def __repr__(self):
         txt = f"FaceResult(id={self.id}, name={self.name}"
-        if self.distance:
-            txt += f", distance={self.distance}"
+        if self.get("confidence"):
+            txt += f", confidence={self['confidence']}%"
         txt += ")"
         return txt
 
@@ -517,7 +524,7 @@ class PineconeDB(BaseDB):
             return self.index.query(vector=embeddings, **params).to_dict()  # type: ignore
 
     def parser(
-        self, result, imgdb, include=None, query=True
+        self, result, imgdb, include=None, query=True, threshold=None
     ) -> Union[FaceResults, List[FaceResults]]:
         if isinstance(result, dict):
             result = [result]
@@ -537,6 +544,11 @@ class PineconeDB(BaseDB):
                 }
                 if "score" in r:
                     data["distance"] = 1 - r["score"]
+                    if threshold:
+                        _, direction, value = threshold
+                        data["confidence"] = calculate_confidence(
+                            data["distance"], value, direction
+                        )
 
                 for k in include:
                     if k[:9] == "embedding":
@@ -569,7 +581,10 @@ class PineconeDB(BaseDB):
             ids = [ids]
 
         return self.query(
-            embeddings=[0] * self.dimension, top_k=len(ids), where={"id": {"$in": ids}}, include=include
+            embeddings=[0] * self.dimension,
+            top_k=len(ids),
+            where={"id": {"$in": ids}},
+            include=include,
         )
 
     def all(self, include=None):
@@ -623,7 +638,7 @@ class ChromaDB(BaseDB):
                 "hnsw:space": metric,
             },
         )
-        
+
         self.metric = metric
         self.collection_name = collection_name
 
@@ -658,7 +673,9 @@ class ChromaDB(BaseDB):
     def all(self, include=None):
         return self.db.get(include=include or ["metadatas"])
 
-    def query_parser(self, result, imgdb, include=["distances"]) -> List[FaceResults]:
+    def query_parser(
+        self, result, imgdb, include=["distances"], threshold=None
+    ) -> List[FaceResults]:
         results: List[FaceResults] = []
         for i in range(len(result["ids"])):
             rs = []
@@ -666,6 +683,12 @@ class ChromaDB(BaseDB):
                 data = {"id": id}
                 if result["distances"]:
                     data["distance"] = result["distances"][i][j]
+                    if threshold:
+                        _, direction, value = threshold
+                        data["confidence"] = calculate_confidence(
+                            data["distance"], value, direction
+                        )
+
                 for k in include:
                     if k[:9] == "embedding":
                         if result["embeddings"]:
@@ -712,9 +735,11 @@ class ChromaDB(BaseDB):
 
         return FaceResults(results)
 
-    def parser(self, result, imgdb, include=None, query=True):
+    def parser(
+        self, result, imgdb, include=None, query=True, threshold=None
+    ) -> Union[FaceResults, List[FaceResults]]:
         if query:
-            return self.query_parser(result, imgdb, include)
+            return self.query_parser(result, imgdb, include, threshold)
         else:
             return self.get_parser(result, imgdb, include)
 

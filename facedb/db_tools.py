@@ -144,7 +144,7 @@ def get_include(default=None, include=None):
     return sincludes, include
 
 
-face_recognation_metric_threshold = {
+fthresholds = {
     "pinecone": {
         "cosine": {"value": 0.07, "operator": "le", "direction": "negative"},
         "cosine_l2": {
@@ -188,30 +188,7 @@ face_recognation_metric_threshold = {
 }
 
 
-def face_recognition_is_match(
-    db_backend, metric, value, l2_normalization=True, threshold: Optional[float] = None
-):
-    if l2_normalization:
-        metric_threshold = face_recognation_metric_threshold[db_backend][metric + "_l2"]
-    else:
-        metric_threshold = face_recognation_metric_threshold[db_backend][metric]
 
-    if threshold is None:
-        threshold = metric_threshold["value"]
-
-    if metric_threshold["operator"] == "le":
-        return value <= threshold
-    elif metric_threshold["operator"] == "ge":
-        return value >= threshold
-    else:
-        raise ValueError(f"Unknown operator: {metric_threshold['operator']}")
-
-
-deeface_metric_map = {
-    "cosine": "cosine",
-    "euclidean": "l2",
-    "euclidean_l2": "l2",
-}
 
 
 def time_now():
