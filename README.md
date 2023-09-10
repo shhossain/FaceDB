@@ -2,6 +2,10 @@
 
 FaceDB is a Python library that provides an easy-to-use interface for face recognition and face database management. It allows you to perform face recognition tasks, such as face matching and face searching, and manage a database of faces efficiently. FaceDB supports two popular face recognition frameworks: DeepFace and face_recognition.
 
+## Links
+[Pypi](https://pypi.org/project/facedb/)
+[Github](https://github.com/shhossain/facedb)
+
 ## Installation
 
 FaceDB can be installed using pip:
