@@ -28,10 +28,20 @@ ids, failed_indexes = db.add_many(
 )
 ```
 
-### FaceDB.recognize()
-
-### FaceDB.all()
-
+### FaceDB.recognize(img=None, embedding=None, include=None, threshold=None, top_k=1) -> False|None|FaceResults
+Try to find the name of the personne within the picture.   
+Example:
+```
+result = db.recognize(img="your_image.jpg")
+```
+### FaceDB.all(include=None) -> FaceResults
+Retrieve information about all faces in the database.   
+Example:
+```
+results = db.all(include='name')
+#Or with a list
+results = db.all(include=['name', 'img']) 
+```
 ### FaceDB.all().df
 
 ### FaceDB.search()
