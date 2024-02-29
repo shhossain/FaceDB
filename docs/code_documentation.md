@@ -1,5 +1,7 @@
 # FaceDB object initialization
 
+### FaceResult
+
 # Main features
 
 ### FaceDB.add(name:str,img=None,embedding=None,id=None,check_similar=True,save_just_face=False,**kwargs: Additional metadata for the face.)
@@ -42,10 +44,19 @@ results = db.all(include='name')
 #Or with a list
 results = db.all(include=['name', 'img']) 
 ```
-### FaceDB.all().df
+### FaceDB.all().df -> pd.DataFrame
+Easy to get your result in a Pandas DataFrame.   
+Example:
+```
+df = db.all().df
+```
 
-### FaceDB.search()
-
+### FaceDB.search(embedding,include) -> FaceResults
+Search for similar faces based on the image you provided.   
+Example:
+```
+results = db.search(img="your image.jpg")
+```
 ### FaceDB.get_all()
 
 ### FaceDB.update()
@@ -54,5 +65,9 @@ results = db.all(include=['name', 'img'])
 
 ### Face.count()
 
-### Face.query()
-
+### Face.query(embeddings,top_k=1,include: Optional[List[Literal["embeddings", "metadatas"]]] = None,where=None,)) -> FaceResults
+Make a query to the database and get the result of the db.   
+Example:
+```
+results = db.query(name="Nelson Mandela"
+```
