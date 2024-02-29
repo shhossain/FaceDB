@@ -2,7 +2,36 @@
 
 ### FaceResult
 
-# Main features
+#### Parameters
+```
+id
+name
+distance
+embedding
+img
+```
+#### Methods
+
+##### show_img()
+Convenient way to see the image that is in your FaceResults object. Open a matplotlib window 
+
+### FaceResults
+
+#### Parameters
+Note that the following parameters are only going to be accessile if you just have and FaceResult in your object FaceResults
+```
+id
+name
+distance
+embedding
+img
+```
+#### Methods
+
+##### show_img()
+Convenient way to see the images that is in your FaceResults object. Open a matplotlib window 
+
+# Main features of FaceDB
 
 ### FaceDB.add(name:str,img=None,embedding=None,id=None,check_similar=True,save_just_face=False,**kwargs: Additional metadata for the face.)
 Give you the possibility to add a new entry in our FaceDB database.  
