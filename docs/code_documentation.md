@@ -57,14 +57,30 @@ Example:
 ```
 results = db.search(img="your image.jpg")
 ```
-### FaceDB.get_all()
-
-### FaceDB.update()
-
-### FaceDB.delete()
-
-### Face.count()
-
+### FaceDB.get_all(include) -> FaceResults
+Get all the faces of the db according on the parameters you want.   
+Example:
+```
+results = db.get_all(include=['name', 'img'])
+``` 
+### FaceDB.update(id, name=None, embedding=None, img=None, only_face=False)
+Update value in your db.   
+Example:
+```
+db.update(id=face_id, name="John Doe", img="john_doe.jpg") 
+```
+### FaceDB.delete(id)
+Delete one element in the database.   
+Example:
+```
+db.delete(face_id)
+```
+### Face.count() -> int
+Count the number of faces in the database.   
+Example:
+```
+count = db.count()
+```
 ### Face.query(embeddings,top_k=1,include: Optional[List[Literal["embeddings", "metadatas"]]] = None,where=None,)) -> FaceResults
 Make a query to the database and get the result of the db.   
 Example:
