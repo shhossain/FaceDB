@@ -11,7 +11,22 @@ db.add("Barack Obama", img="obama.jpg", profession="Politician", country="USA")
 db.add("Einstein", img="einstein.jpg", profession="Scientist", country="Germany")
 ```
 
-### FaceDB.add_many()
+### FaceDB.add_many(embeddings=None,imgs=None,metadata=None,ids=None,names=None,check_similar=True)
+Give you the possibility to add several new entries in our FaceDB database at one time.   
+Example :
+```
+files = glob("faces/*.jpg") # Suppose you have a folder with imgs with names as filenames
+imgs = []
+names = []
+for file in files:
+    imgs.append(file)
+    names.append(Path(file).name)
+
+ids, failed_indexes = db.add_many(
+    imgs=imgs,
+    names=names,
+)
+```
 
 ### FaceDB.recognize()
 
