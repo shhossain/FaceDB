@@ -164,6 +164,10 @@ results = db.query(name="Nelson Mandela")
 # Query the database by profession
 results = db.query(profession="Politician")
 ```
+## If you don't have an API key
+
+You can follow the official pinecone tutorial : https://docs.pinecone.io/docs/new-api
+It's easy to use and to understand, don't worry.
 
 ## Advanced Querying
 
