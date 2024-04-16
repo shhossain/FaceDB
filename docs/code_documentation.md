@@ -114,5 +114,5 @@ count = db.count()
 Make a query to the database and get the result of the db.   
 Example:
 ```
-results = db.query(name="Nelson Mandela"
+results = db.query(name="Nelson Mandela")
 ```
