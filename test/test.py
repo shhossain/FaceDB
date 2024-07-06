@@ -94,7 +94,7 @@ class TestFaceDBChroma(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.db.delete_all()
-        
+
 
 class TestFaceDBPinecone(unittest.TestCase):
     @classmethod
@@ -105,7 +105,9 @@ class TestFaceDBPinecone(unittest.TestCase):
             database_backend="pinecone",
             embedding_dim=128,
             module="face_recognition",
-            index_name="test-face-db"
+            pinecone_settings={
+                "index_name": "test-face-db",
+            },
         )
 
     def test_add_many(self):
@@ -127,7 +129,7 @@ class TestFaceDBPinecone(unittest.TestCase):
             f"IDs: {ids}"
         )
         print(self.db.all(include=["name"]))
-        
+
         self.assertEqual(len(failed_indexes), 1)
         self.assertEqual(len(ids), 2)
 
