@@ -1,18 +1,37 @@
 import numpy as np
-import chromadb
 import cv2
 import pprint
 from pathlib import Path
 import os
 from facedb.query import Query
 from math import ceil
+import warnings
 
 try:
     from typing import Literal, Optional, Union, List
 except ImportError:
     from typing_extensions import Literal, Optional, Union, List
 
-pinecone = None
+# pinecone = None
+
+PINECONE_IMPORTED = False
+try:
+    from pinecone import Pinecone, Index, ServerlessSpec
+
+    PINECONE_IMPORTED = True
+except ImportError:
+    pass
+
+CHROMADB_IMPORTED = False
+try:
+    import chromadb
+
+    CHROMADB_IMPORTED = True
+except ImportError:
+    pass
+
+if not PINECONE_IMPORTED and not CHROMADB_IMPORTED:
+    raise ImportError("Please install `pinecone` or `chromadb` to use this module.")
 
 
 def many_vectors(obj):
@@ -379,68 +398,76 @@ class BaseDB:
 
 
 class PineconeDB(BaseDB):
-    def __init__(
-        self, dimension: int, index=None, index_name=None, metric="cosine", **kw
-    ):
-        global pinecone
-        if pinecone is None:
-            try:
-                import pinecone
-            except ImportError:
-                raise ImportError(
-                    "pinecone is not installed. Install it with `pip install pinecone-client`"
-                )
 
-        self.index: pinecone.Index = None  # type: ignore
-        self.dimension: int = dimension
+    def __init__(
+        self,
+        dimension: int,
+        spec=None,
+        pinecone_client=None,
+        index_name=None,
+        metric="cosine",
+        api_key=None,
+        **kw,
+    ):
         assert metric in [
             "cosine",
             "euclidean",
             "dotproduct",
         ], "metric must be cosine, euclidean, or dotproduct"
-        assert (
-            index is not None or index_name is not None
-        ), "index or index_name must be provided"
+
+        assert index_name is not None, "index_name must be provided"
         assert dimension is not None, "dimension must be provided"
 
-        if not index:
-            api_key = kw.get("api_key", None) or os.environ.get(
-                "PINECONE_API_KEY", None
-            )
-            environment = kw.get(
-                "environment",
-            ) or os.environ.get("PINECONE_ENVIRONMENT", None)
+        self.index_name = index_name
+        self.pc: Pinecone = None  # type: ignore
+        self.dimension: int = dimension
+        self.spec = spec
 
-            if api_key is None or environment is None:
+        if not spec:
+            self.spec = ServerlessSpec(
+                cloud="aws",
+                region="us-east-1",
+            )
+
+        if not pinecone_client:
+            api_key = api_key or os.environ.get("PINECONE_API_KEY", None)
+            # environment = kw.get(
+            #     "environment",
+            # ) or os.environ.get("PINECONE_ENVIRONMENT", None) # Deprecated
+
+            if "environment" in kw:
+                warnings.warn(
+                    "`environment` is deprecated. Only use `api_key` instead.",
+                )
+                del kw["environment"]
+
+            if api_key is None:
                 raise ConnectionError(
-                    "Pinecone api_key and environment must be provided. Please see https://www.pinecone.io/docs/quick-start/ for more information"
+                    "Pinecone api_key is not provided. Please provide an api_key or set it as an environment variable."
                 )
             try:
-                pinecone.init(  # type: ignore
+                self.pc = Pinecone(
                     api_key=api_key,
-                    environment=environment,
+                    **kw,
                 )
-                api_key = None
-                environment = None
-                del api_key
-                del environment
             except Exception as e:
                 raise Exception(
                     f"Failed to initialize pinecone. Please check your api_key and environment. Error: {e}"
                 )
-            self.index = self.get_index(index_name, dimension, metric)
         else:
             assert isinstance(
-                index, pinecone.Index  # type: ignore
-            ), f"index must be a pinecone.Index object, got `{type(index)}`"
-            self.index = index
+                pinecone_client, Pinecone  # type: ignore
+            ), f"pinecone_client must be an instance of Pinecone. Got {type(pinecone_client)}"
+            self.pc = pinecone_client
 
-        self.index_name = self.index.configuration.server_variables["index_name"]
+        idx_infos_raw = self.pc.list_indexes()
+        self.idx_infos = {i["name"]: i for i in idx_infos_raw}
 
-        self.index_info: dict = pinecone.describe_index(self.index_name)  # type: ignore
+        self.index = self.get_index(index_name, dimension, metric)
+        self.index_info: dict = self.idx_infos[self.index_name]
 
         assert (
-            self.index_info.dimension == self.dimension  # type: ignore
+            self.index_info["dimension"] == self.dimension  # type: ignore
         ), f"dimension must be the same as the index. `{self.index_name}` has dimension of `{self.index_info.dimension}` but got `{self.dimension}`"
 
         assert (
@@ -451,11 +478,15 @@ class PineconeDB(BaseDB):
         return self.index.describe_index_stats().get("total_vector_count", -1)
 
     def get_index(self, index_name, dimension, metric):
-        if index_name in pinecone.list_indexes():  # type: ignore
-            return pinecone.Index(index_name)  # type: ignore
+        if index_name in self.idx_infos:
+            return self.pc.Index(index_name)
         else:
-            pinecone.create_index(name=index_name, dimension=dimension, metric=metric)  # type: ignore
-            return pinecone.Index(index_name)  # type: ignore
+            self.pc.create_index(
+                name=index_name, dimension=dimension, metric=metric, spec=self.spec
+            )
+            idx_infos_raw = self.pc.list_indexes()
+            self.idx_infos = {i["name"]: i for i in idx_infos_raw}
+            return self.pc.Index(index_name)
 
     def _add(self, ids, embeddings, metadatas=None):
         vectors = []

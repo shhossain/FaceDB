@@ -65,7 +65,6 @@ pip install pinecone
 import os
 
 os.environ["PINECONE_API_KEY"] = "YOUR_API_KEY"
-os.environ["PINECONE_ENVIRONMENT"] = "YOUR_ENVIRONMENT_NAME"
 
 db = FaceDB(
     path="facedata",

@@ -4,7 +4,7 @@ from tqdm.auto import tqdm
 import cv2
 import warnings
 import threading
-
+import os
 
 DeepFace = None
 deepface_distance = None
@@ -28,7 +28,7 @@ from facedb.db_tools import (
     List,
     Tuple,
     fthresholds,
-    FailedImageIndexList
+    FailedImageIndexList,
 )
 
 from facedb.db_models import FaceResults, PineconeDB, ChromaDB
@@ -183,30 +183,59 @@ metric_map = {
 
 
 class FaceDB:
+
     def __init__(
         self,
         *,
-        path=None,
+        path: str = "facedata",
         metric: Literal["cosine", "euclidean", "dot"] = "euclidean",
         embedding_func=None,
         embedding_dim: Optional[int] = None,
         l2_normalization: bool = True,
         module: Literal["deepface", "face_recognition"] = "face_recognition",
         database_backend: Literal["chromadb", "pinecone"] = "chromadb",
+        pinecone_settings: dict = {},
+        face_recognition_settings: dict = {},
+        deepface_settings: dict = {},
         **kw,
     ):
         """
         Initialize the FaceDB instance for face recognition.
 
         Args:
-            path (str, optional): The path to store data. Defaults to "data".
+            path (str, optional): The path to store data. Defaults to "facedata".
             metric (str, optional): The distance metric to use for similarity. Defaults to "euclidean".
-            embedding_func (callable, optional): The function to compute face embeddings. Defaults to None.
-            embedding_dim (int, optional): The dimension of face embeddings. Defaults to None.
-            l2_normalization (bool, optional): Whether to perform L2 normalization on embeddings. Defaults to True.
-            module (str, optional): The face recognition module to use. Defaults to "face_recognition".
-            database_backend (str, optional): The database backend to use. Defaults to "chromadb".
-            **kw: Additional keyword arguments for configuration.
+            embedding_func (callable, optional): Custom embedding function. Defaults to None.
+            embedding_dim (int, optional): The dimension of face embeddings. Defaults to selected automatically.
+            l2_normalization (bool, optional): Whether to perform L2 normalization on embeddings(increases accuracy). Defaults to True.
+            module (str, optional): The face recognition module to use. Defaults to "face_recognition" (DeepFace not optimized).
+            database_backend (str, optional): The database backend to use(ChromaDB or Pinecone). Defaults to "chromadb".
+
+            pinecone_settings (dict, optional):
+                Additional settings to pass to the Pinecone client.
+                client (PineconeClient, optional): The Pinecone client to use. Defaults to HTTPClient.
+                index_name (str, optional): The name of the Pinecone index to use.
+                api_key (str, optional): Can be passed as `pinecone_api_key` or environment variable `PINECONE_API_KEY`.
+                spec (str, optional): The Pinecone spec to use. Defaults to ServerlessSpec(cloud="aws",region="us-east-1").
+                Rest of the keyword arguments are passed to the pinecone client directly.
+
+            face_recognition_settings (dict, optional):
+                Additional settings to pass to the face recognition module.
+                model (str, optional): Model size. Defaults to "small".
+                num_jitters (int, optional): Number of jitter samples. Defaults to 1.
+                extract_face_model (str, optional): Face detection model. Defaults to "hog".
+
+            deepface_settings (dict, optional):
+                Additional settings to pass to the DeepFace module.
+                model_name (str, optional): Model name. Defaults to "Facenet512".
+                detector_backend (str, optional): Face detection backend. Defaults to "ssd".
+                enforce_detection (bool, optional): Whether to enforce face detection. Defaults to True.
+                normalization (bool, optional): Whether to normalize face embeddings. Defaults to True.
+                extract_face_backend (str, optional): Face detection backend. Defaults to "ssd".
+                enforce_detection (bool, optional): Whether to enforce face detection. Defaults to True.
+                align (bool, optional): Whether to align faces. Defaults to True.
+
+
 
         Examples:
             >>> from facedb import FaceDB
@@ -215,8 +244,6 @@ class FaceDB:
             >>> facedb.add("jeff_bezos", img="jeff_bezos.jpg")
             >>> facedb.recognize(img="elon_musk_2.jpg") # returns FaceResults
         """
-        if path is None:
-            path = "data"
 
         path = Path(path)
 
@@ -239,8 +266,10 @@ class FaceDB:
                 "Deepface module is not calibrated for vector database. Use `face_recognition` instead."
             )
 
+        os.environ["DB_BACKEND"] = database_backend
+
         self.metric = metric
-        self.embedding_func: Callable = None  # type: ignore
+        self.embedding_func: Callable = embedding_func  # type: ignore
         self.extract_faces: Callable = None  # type: ignore
         self.module = module
         self.db_backend = database_backend
@@ -257,48 +286,52 @@ class FaceDB:
 
         elif database_backend == "pinecone":
             self.db = PineconeDB(
-                index=kw.pop("index", None),
-                index_name=kw.pop("index_name", None),
+                pinecone_client=pinecone_settings.pop("client", None),
+                index_name=pinecone_settings.pop("index_name", None),
                 metric=metric_map[database_backend][metric],
                 dimension=embedding_dim
                 or get_model_dimension(module, self.deepface_model_name),
-                api_key=kw.pop("pinecone_api_key", None),
-                environment=kw.pop("pinecone_environment", None),
+                api_key=pinecone_settings.pop("pinecone_api_key", None),
+                spec=pinecone_settings.pop("spec", None),
+                **pinecone_settings,
             )
 
-        load_module(module)
-
         if embedding_func is None:
+            load_module(module)
             if module == "deepface":
                 self.embedding_func = create_deepface_embedding_func(
-                    model_name=kw.pop("model_name", "Facenet"),
-                    detector_backend=kw.pop("detector_backend", "ssd"),
-                    enforce_detection=kw.pop("enforce_detection", True),
-                    align=kw.pop("align", True),
-                    normalization=kw.pop("normalization", "base"),
+                    model_name=deepface_settings.pop("model_name", "Facenet"),
+                    detector_backend=deepface_settings.pop("detector_backend", "ssd"),
+                    enforce_detection=deepface_settings.pop("enforce_detection", True),
+                    align=deepface_settings.pop("align", True),
+                    normalization=deepface_settings.pop("normalization", "base"),
                     l2_normalization=l2_normalization,
                 )
                 self.extract_faces = create_deepface_extract_faces_func(
-                    extract_faces_detector_backend=kw.pop(
+                    extract_faces_detector_backend=deepface_settings.pop(
                         "extract_face_backend",
                         "ssd",
                     ),
-                    enforce_detection=kw.pop("enforce_detection", True),
-                    align=kw.pop("align", True),
+                    enforce_detection=deepface_settings.pop("enforce_detection", True),
+                    align=deepface_settings.pop("align", True),
                 )
             elif module == "face_recognition":
                 self.embedding_func = create_face_recognition_embedding_func(
-                    model=kw.pop("model", "small"),
-                    num_jitters=kw.pop("num_jitters", 1),
+                    model=face_recognition_settings.pop("model", "small"),
+                    num_jitters=face_recognition_settings.pop("num_jitters", 1),
                     l2_normalization=l2_normalization,
                 )
                 self.extract_faces = create_face_recognition_extract_faces_func(
-                    extract_face_model=kw.pop("extract_face_model", "hog"),
+                    extract_face_model=face_recognition_settings.pop(
+                        "extract_face_model", "hog"
+                    ),
                 )
             else:
                 raise ValueError(
                     "Currently only `deepface` and `face_recognition` are supported."
                 )
+        else:
+            self.embedding_func = embedding_func
 
         if not path.exists():
             path.mkdir(parents=True)
@@ -321,11 +354,11 @@ class FaceDB:
     def get_threshold(self) -> Tuple[str, str, float]:
         """
         Get the similarity threshold for the database.
-        
+
         Returns:
             Tuple[str, str, float]: The similarity threshold.
         """
-        
+
         metric = self.metric
         if self.module == "deepface":
             if metric == "euclidean" and self.l2_normalization:
@@ -335,7 +368,7 @@ class FaceDB:
                 self.deepface_model_name, metric
             )
             return "le", "negative", threshold
-        
+
         elif self.module == "face_recognition":
             metric = metric_map[self.db_backend][metric]
             if self.l2_normalization:
@@ -343,7 +376,11 @@ class FaceDB:
             else:
                 metric_threshold = fthresholds[self.db_backend][metric]
 
-            return metric_threshold["operator"], metric_threshold['direction'], metric_threshold['value']
+            return (
+                metric_threshold["operator"],
+                metric_threshold["direction"],
+                metric_threshold["value"],
+            )
 
         else:
             raise ValueError(
@@ -351,7 +388,14 @@ class FaceDB:
             )
 
     def _is_match(self, distance, threshold=None):
-        op,_, threshold = self.threshold
+        if threshold is None or threshold == 80:
+            op, _, threshold = self.threshold
+        else:
+            op, _, thrs = self.threshold
+            threshold = max(10, threshold)
+            thrs = thrs / (threshold / 100)
+            threshold = thrs
+
         if op == "le":
             return distance <= threshold
         elif op == "ge":
@@ -403,7 +447,7 @@ class FaceDB:
 
         Args:
             embeddings: Face embeddings to compare.
-            threshold (float, optional): The similarity threshold. Defaults to None.
+            threshold (float, optional): The similarity threshold. Defaults to 80.
 
         Returns:
             list: List of id(if it is match) or false
@@ -733,7 +777,10 @@ class FaceDB:
                     print(
                         f"Similar face {r} already exists. If you want to add anyway, set `check_similar` to `False`."
                     )
-                    failed.append(faces[i]["index"], failed_reason=f"Similar face {r} already exists.")
+                    failed.append(
+                        faces[i]["index"],
+                        failed_reason=f"Similar face {r} already exists.",
+                    )
                     faces[i] = None
 
             res = None
