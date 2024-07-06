@@ -32,4 +32,4 @@ jobs:
           pip install -r requirements.txt  # If you have any requirements
 
       - name: Run tests
-        run: python test/test.py ${{ secrets.TEST_KEY }} ${{ secrets.TEST_ENV }}
+        run: python test/test.py ${{ secrets.TEST_KEY }}

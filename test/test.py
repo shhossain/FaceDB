@@ -201,10 +201,8 @@ if __name__ == "__main__":
     
     # get api_key and env from sys
     api_key = sys.argv[1]
-    env = sys.argv[2]
     
     os.environ["PINECONE_API_KEY"] = api_key
-    os.environ["PINECONE_ENVIRONMENT"] = env
     
     suite.addTest(TestFaceDBPinecone("test_add_many"))
     suite.addTest(TestFaceDBPinecone("test_recognize_known_face"))
