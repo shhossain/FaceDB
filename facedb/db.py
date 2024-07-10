@@ -194,6 +194,7 @@ class FaceDB:
         l2_normalization: bool = True,
         module: Literal["deepface", "face_recognition"] = "face_recognition",
         database_backend: Literal["chromadb", "pinecone"] = "chromadb",
+        index_name: Optional[str] = None,
         pinecone_settings: dict = {},
         face_recognition_settings: dict = {},
         deepface_settings: dict = {},
@@ -211,22 +212,19 @@ class FaceDB:
             module (str, optional): The face recognition module to use. Defaults to "face_recognition" (DeepFace not optimized).
             database_backend (str, optional): The database backend to use(ChromaDB or Pinecone). Defaults to "chromadb".
 
-            pinecone_settings (dict, optional):
-                Additional settings to pass to the Pinecone client.
+            pinecone_settings (dict, optional): Additional settings to pass to the Pinecone client.
                 client (PineconeClient, optional): The Pinecone client to use. Defaults to HTTPClient.
                 index_name (str, optional): The name of the Pinecone index to use.
                 api_key (str, optional): Can be passed as `pinecone_api_key` or environment variable `PINECONE_API_KEY`.
                 spec (str, optional): The Pinecone spec to use. Defaults to ServerlessSpec(cloud="aws",region="us-east-1").
                 Rest of the keyword arguments are passed to the pinecone client directly.
 
-            face_recognition_settings (dict, optional):
-                Additional settings to pass to the face recognition module.
+            face_recognition_settings (dict, optional): Additional settings to pass to the face recognition module.
                 model (str, optional): Model size. Defaults to "small".
                 num_jitters (int, optional): Number of jitter samples. Defaults to 1.
                 extract_face_model (str, optional): Face detection model. Defaults to "hog".
 
-            deepface_settings (dict, optional):
-                Additional settings to pass to the DeepFace module.
+            deepface_settings (dict, optional): Additional settings to pass to the DeepFace module.
                 model_name (str, optional): Model name. Defaults to "Facenet512".
                 detector_backend (str, optional): Face detection backend. Defaults to "ssd".
                 enforce_detection (bool, optional): Whether to enforce face detection. Defaults to True.
@@ -267,6 +265,15 @@ class FaceDB:
             )
 
         os.environ["DB_BACKEND"] = database_backend
+
+        if index_name:
+            warnings.warn(
+                """`index_name` is deprecated. Use `pinecone_settings` instead.
+            For example:
+            ```pinecone_settings = {index_name = 'my_index'}```
+            """
+            )
+            pinecone_settings["index_name"] = index_name
 
         self.metric = metric
         self.embedding_func: Callable = embedding_func  # type: ignore
