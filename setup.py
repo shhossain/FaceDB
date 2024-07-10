@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys
 
-version = "0.0.12"
+version = "0.0.13"
 description = "A python package for face database management"
 
 with open("README.md", encoding="utf-8") as f:
