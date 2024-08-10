@@ -46,7 +46,7 @@ def load_module(module: Literal["deepface", "face_recognition"]):
             if DeepFace is None:
                 try:
                     from deepface import DeepFace
-                    from deepface.commons import distance as deepface_distance
+                    from deepface.modules import verification as deepface_distance
                 except ImportError:
                     raise ImportError(
                         "Please install `deepface` to use `deepface` module."
@@ -371,7 +371,7 @@ class FaceDB:
             if metric == "euclidean" and self.l2_normalization:
                 metric = "euclidean_l2"
 
-            threshold = deepface_distance.findThreshold(  # type: ignore
+            threshold = deepface_distance.find_threshold(  # type: ignore
                 self.deepface_model_name, metric
             )
             return "le", "negative", threshold
