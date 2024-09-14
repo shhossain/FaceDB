@@ -1,3 +1,10 @@
+"""
+Copied from mongoquery (https://github.com/kapouille/mongoquery)
+
+mongoquery provides a straightforward API to match Python objects against
+MongoDB Query Language queries.
+"""
+
 import re
 from collections.abc import Sequence, Mapping
 from six import string_types
